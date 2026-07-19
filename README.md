@@ -117,6 +117,14 @@ equity. Run it after a migration or a bulk import.
    so `packages/*` still resolve — `transpilePackages` compiles them from
    source at build time.
 
+   Setting the Root Directory is the *only* fix. A root-level `vercel.json`
+   pinning `"framework": "nextjs"` looks like it should work and does not:
+   Vercel still needs to resolve the actual `next` version from the
+   `package.json` at the Root Directory, so it accepts the pin, proceeds down
+   the Next.js path, and then fails the version check with the same error.
+   Adding `next` to the root workspace manifest just to satisfy it would be
+   worse — a duplicate dependency that can drift from the real one.
+
    `apps/web/vercel.json` pins `"framework": "nextjs"`. It lives there, not
    at the repo root, because Vercel reads `vercel.json` from the Root
    Directory — a root-level one is ignored entirely once Root Directory is
