@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens. Deliberately restrained: a ledger should read like a
+ * document, not a dashboard. One accent colour, semantic red/green reserved
+ * exclusively for money direction so they never lose their meaning.
+ */
+@theme {
+  --color-canvas: oklch(0.99 0.002 260);
+  --color-surface: oklch(1 0 0);
+  --color-line: oklch(0.92 0.004 260);
+  --color-line-strong: oklch(0.85 0.006 260);
+
+  --color-ink: oklch(0.22 0.01 260);
+  --color-ink-muted: oklch(0.52 0.012 260);
+  --color-ink-subtle: oklch(0.65 0.01 260);
+
+  --color-accent: oklch(0.52 0.16 258);
+  --color-accent-hover: oklch(0.46 0.17 258);
+  --color-accent-soft: oklch(0.96 0.02 258);
+
+  --color-positive: oklch(0.52 0.13 155);
+  --color-negative: oklch(0.55 0.19 25);
+  --color-warning-soft: oklch(0.97 0.04 85);
+  --color-warning-ink: oklch(0.45 0.1 70);
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  @theme {
+    --color-canvas: oklch(0.17 0.008 260);
+    --color-surface: oklch(0.21 0.009 260);
+    --color-line: oklch(0.29 0.01 260);
+    --color-line-strong: oklch(0.37 0.012 260);
+
+    --color-ink: oklch(0.95 0.004 260);
+    --color-ink-muted: oklch(0.72 0.012 260);
+    --color-ink-subtle: oklch(0.58 0.01 260);
+
+    --color-accent: oklch(0.72 0.14 258);
+    --color-accent-hover: oklch(0.79 0.13 258);
+    --color-accent-soft: oklch(0.27 0.04 258);
+
+    --color-positive: oklch(0.75 0.15 155);
+    --color-negative: oklch(0.71 0.17 25);
+    --color-warning-soft: oklch(0.3 0.05 85);
+    --color-warning-ink: oklch(0.85 0.1 85);
+  }
+}
+
+html {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100dvh;
+  /* Room for the fixed mobile tab bar; released once the sidebar takes over. */
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/*
+ * Every figure in the app is set in tabular numerals so columns of money
+ * line up digit-for-digit. This is the single most important typographic
+ * decision in an accounting UI.
+ */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* iOS zooms the page when a focused input is under 16px. */
+@supports (-webkit-touch-callout: none) {
+  input,
+  select,
+  textarea {
+    font-size: max(16px, 1rem);
+  }
+}
+
+*:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
