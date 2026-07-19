@@ -117,11 +117,22 @@ equity. Run it after a migration or a bulk import.
    so `packages/*` still resolve — `transpilePackages` compiles them from
    source at build time.
 
-   There is deliberately no `vercel.json`. Vercel reads that file from the
-   Root Directory, so a root-level one would be ignored once Root Directory
-   is `apps/web`; auto-detection handles the build correctly on its own.
-   pnpm workspaces are detected automatically and installed from the repo
-   root.
+   `apps/web/vercel.json` pins `"framework": "nextjs"`. It lives there, not
+   at the repo root, because Vercel reads `vercel.json` from the Root
+   Directory — a root-level one is ignored entirely once Root Directory is
+   `apps/web`.
+
+   The pin matters because the framework preset is saved **at import time**.
+   If the first import failed detection (see above), Vercel persists
+   `Framework Preset = Other`, and fixing Root Directory afterwards does not
+   re-run detection. The build then fails with a second, more confusing
+   error:
+
+   > No Output Directory named "public" found after the Build completed.
+
+   That is the "Other" preset looking for a static site. Set Framework Preset
+   to Next.js in Settings → General, or let this file assert it. pnpm
+   workspaces are detected and installed from the repo root automatically.
 
 4. **Add both environment variables** in Vercel (Production and Preview), then
    deploy.
