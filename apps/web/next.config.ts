@@ -1,4 +1,19 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { NextConfig } from "next";
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+/**
+ * The workspace root, two levels up from apps/web.
+ *
+ * Next traces the files each server route needs into the deployed function.
+ * By default it roots that trace at the app directory, which in a pnpm
+ * workspace stops short of ../../node_modules/.pnpm — where the real package
+ * contents live behind symlinks. Widening the root is what lets externals
+ * like @libsql/client actually ship with the lambda instead of failing at
+ * runtime with MODULE_NOT_FOUND.
+ */
+const workspaceRoot = path.join(here, "..", "..");
 
 /**
  * libSQL ships a native binding (`libsql`) used for local `file:` databases.
@@ -14,6 +29,15 @@ const config: NextConfig = {
   // rather than us maintaining a build step per package.
   transpilePackages: ["@acct/core", "@acct/db", "@acct/auth", "@acct/ledger"],
   serverExternalPackages: NATIVE_SERVER_DEPS,
+
+  outputFileTracingRoot: workspaceRoot,
+  // The tracer follows static requires, but @libsql/client resolves its
+  // platform binding dynamically, so the .node files are invisible to it.
+  // Name them explicitly or the lambda ships a client that can't open a
+  // connection.
+  outputFileTracingIncludes: {
+    "/**/*": ["../../node_modules/.pnpm/@libsql+*/**/*"],
+  },
 
   typedRoutes: true,
 
