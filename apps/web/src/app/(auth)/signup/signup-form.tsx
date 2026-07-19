@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom";
 import { MIN_PASSWORD_LENGTH } from "@acct/core";
 import { signUpAction } from "@/actions/auth";
 import { type ActionState, idle } from "@/lib/action-state";
+import { PasswordInput } from "@/components/password-input";
 import { Alert, Button, Card, Field, Input } from "@/components/ui";
 
 function SubmitButton() {
@@ -125,10 +126,9 @@ export function SignupForm() {
           hint={`At least ${MIN_PASSWORD_LENGTH} characters`}
           error={state.fieldErrors?.["password"]}
         >
-          <Input
+          <PasswordInput
             id="password"
             name="password"
-            type="password"
             autoComplete="new-password"
             minLength={MIN_PASSWORD_LENGTH}
             required
@@ -142,10 +142,9 @@ export function SignupForm() {
         </Field>
 
         <Field label="Confirm password" htmlFor="confirmPassword" error={confirmError}>
-          <Input
+          <PasswordInput
             id="confirmPassword"
             name="confirmPassword"
-            type="password"
             autoComplete="new-password"
             required
             value={confirmPassword}

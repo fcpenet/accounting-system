@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { signInAction } from "@/actions/auth";
 import { type ActionState, idle } from "@/lib/action-state";
+import { PasswordInput } from "@/components/password-input";
 import { Alert, Button, Card, Field, Input } from "@/components/ui";
 
 function SubmitButton() {
@@ -57,10 +58,9 @@ export function LoginForm() {
         </Field>
 
         <Field label="Password" htmlFor="password">
-          <Input
+          <PasswordInput
             id="password"
             name="password"
-            type="password"
             autoComplete="current-password"
             required
             value={password}
