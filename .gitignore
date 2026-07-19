@@ -1,13 +1,74 @@
-node_modules/
-.next/
-dist/
-*.tsbuildinfo
-
+# ---------------------------------------------------------------------------
+# Secrets
+# ---------------------------------------------------------------------------
+# Ignore every .env variant, then allow the checked-in template back.
+# The broad pattern matters: .env.production is exactly where a Turso auth
+# token ends up, and a narrower rule is how those get committed by accident.
 .env
-.env*.local
+.env.*
 !.env.example
 
+# ---------------------------------------------------------------------------
+# Local databases
+# ---------------------------------------------------------------------------
+# Anything SQLite/libSQL, at any depth. Named by extension rather than by
+# file name so a stray dev.db or test.sqlite can't slip through.
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# ---------------------------------------------------------------------------
+# Dependencies & build output
+# ---------------------------------------------------------------------------
+node_modules/
+.pnpm-store/
+
+.next/
+out/
+dist/
+build/
+.turbo/
 .vercel/
+
+*.tsbuildinfo
+
+# ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
+coverage/
+.vitest/
+*.lcov
+
+# ---------------------------------------------------------------------------
+# Logs & diagnostics
+# ---------------------------------------------------------------------------
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.cache/
+tmp/
+
+# ---------------------------------------------------------------------------
+# Editors & OS
+# ---------------------------------------------------------------------------
+# `.vscode/*` rather than `.vscode/` — git can't re-include a file whose
+# parent directory is excluded, so the negation below would never apply.
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
 .DS_Store
-local.db
-local.db-*
+Thumbs.db
+
+# ---------------------------------------------------------------------------
+# Deliberately tracked
+# ---------------------------------------------------------------------------
+# packages/db/migrations/  — schema history belongs in version control
+# apps/web/next-env.d.ts   — kept so `pnpm typecheck` works on a fresh clone
+#                            without having to run a build first
