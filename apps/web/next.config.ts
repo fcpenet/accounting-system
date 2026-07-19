@@ -16,11 +16,14 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = path.join(here, "..", "..");
 
 /**
- * libSQL ships a native binding (`libsql`) used for local `file:` databases.
- * `@acct/db` is in transpilePackages so Next compiles its TypeScript, but
- * that also pulls its dependencies into the bundle — which makes webpack try
- * to parse a prebuilt `.node` binary. Marking them external on the server
- * leaves them as plain runtime requires, which is what they need to be.
+ * libSQL ships a native binding (`libsql`) used only for local `file:`
+ * databases. packages/db loads that client through createRequire so bundlers
+ * never follow it, but these stay external as a belt-and-braces measure:
+ * if anything does reach for them, webpack must not try to parse a prebuilt
+ * `.node` binary.
+ *
+ * Production uses @libsql/client/web, which is pure JavaScript over fetch and
+ * is bundled normally.
  */
 const NATIVE_SERVER_DEPS = ["@libsql/client", "libsql"];
 
@@ -30,14 +33,10 @@ const config: NextConfig = {
   transpilePackages: ["@acct/core", "@acct/db", "@acct/auth", "@acct/ledger"],
   serverExternalPackages: NATIVE_SERVER_DEPS,
 
+  // pnpm keeps real package contents under <workspace>/node_modules/.pnpm,
+  // outside the app directory. Without this the tracer can't follow them and
+  // externals go missing from the deployed function.
   outputFileTracingRoot: workspaceRoot,
-  // The tracer follows static requires, but @libsql/client resolves its
-  // platform binding dynamically, so the .node files are invisible to it.
-  // Name them explicitly or the lambda ships a client that can't open a
-  // connection.
-  outputFileTracingIncludes: {
-    "/**/*": ["../../node_modules/.pnpm/@libsql+*/**/*"],
-  },
 
   typedRoutes: true,
 

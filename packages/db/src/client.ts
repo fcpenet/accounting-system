@@ -1,4 +1,6 @@
-import { createClient } from "@libsql/client";
+import { createRequire } from "node:module";
+import type { Client } from "@libsql/client";
+import { createClient as createWebClient } from "@libsql/client/web";
 import { drizzle } from "drizzle-orm/libsql";
 import { resolveDatabaseUrl } from "./resolve-url";
 import * as schema from "./schema";
@@ -15,20 +17,36 @@ function required(name: string): string {
 }
 
 /**
- * A single libSQL client is reused across invocations. On Vercel that means
- * one per warm lambda; the module-level cache survives between requests and
- * avoids reconnecting on every render.
+ * Pick a libSQL client based on the URL scheme.
  *
- * TURSO_AUTH_TOKEN is omitted for local file: URLs, which take no auth.
+ * Remote (libsql:// or https://) uses `@libsql/client/web` — pure JavaScript
+ * over fetch, with no native dependency. That is the only path production
+ * ever takes, and keeping it free of native code is what makes the app
+ * deployable as a serverless function: nothing to compile per-platform, and
+ * no 7.5 MB `.node` binary for the file tracer to find and bundle.
+ *
+ * Local `file:` databases need the native binding, so that client is loaded
+ * lazily through createRequire. Because the require is not a static import,
+ * bundlers don't follow it and it never reaches the serverless build.
+ */
+function makeClient(url: string): Client {
+  if (url.startsWith("file:")) {
+    const require = createRequire(import.meta.url);
+    const { createClient } = require("@libsql/client") as typeof import("@libsql/client");
+    return createClient({ url });
+  }
+
+  return createWebClient({ url, authToken: required("TURSO_AUTH_TOKEN") });
+}
+
+/**
+ * A single client is reused across invocations. On Vercel that means one per
+ * warm lambda; the module-level cache survives between requests and avoids
+ * reconnecting on every render.
  */
 function createDb() {
   const url = resolveDatabaseUrl(required("TURSO_DATABASE_URL"));
-
-  const client = createClient(
-    url.startsWith("file:") ? { url } : { url, authToken: required("TURSO_AUTH_TOKEN") },
-  );
-
-  return drizzle(client, { schema, casing: "snake_case" });
+  return drizzle(makeClient(url), { schema, casing: "snake_case" });
 }
 
 export type Database = ReturnType<typeof createDb>;
