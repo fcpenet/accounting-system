@@ -1,7 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
-import { useFormStatus } from "react-dom";
+import { startTransition, useActionState, useMemo, useState } from "react";
 import {
   type Account,
   ACCOUNT_TYPE_LABELS,
@@ -12,7 +11,7 @@ import {
   parseAmount,
 } from "@acct/core";
 import { createEntryAction } from "@/actions/entries";
-import { idle } from "@/lib/action-state";
+import { type ActionState, idle } from "@/lib/action-state";
 import { Alert, Button, Card, Field, Input, Select } from "@/components/ui";
 
 interface Row {
@@ -44,8 +43,7 @@ function tryParse(amount: string): number | null {
   }
 }
 
-function SubmitButton({ disabled }: { disabled: boolean }) {
-  const { pending } = useFormStatus();
+function SubmitButton({ disabled, pending }: { disabled: boolean; pending: boolean }) {
   return (
     <Button type="submit" variant="primary" disabled={pending || disabled}>
       {pending ? "Posting…" : "Post entry"}
@@ -60,8 +58,34 @@ export function EntryForm({
   accounts: Account[];
   today: string;
 }) {
-  const [state, formAction] = useActionState(createEntryAction, idle);
+
+  const [state, formAction, isPending] = useActionState(createEntryAction, idle);
+
+  /*
+   * Submitted through startTransition rather than the form's `action` prop.
+   *
+   * React 19 resets a form once its `action` settles. Controlled <input>s
+   * recover on the next commit, but a reset <select> keeps the reset value —
+   * its props haven't changed, so React has nothing to reconcile — and every
+   * rejected entry silently cleared the chosen accounts. Driving the action
+   * ourselves skips the reset, so state stays the single source of truth.
+   */
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    startTransition(() => formAction(formData));
+  };
   const [rows, setRows] = useState<Row[]>(() => [blankRow("debit"), blankRow("credit")]);
+
+  /*
+   * Controlled, like the line rows already were. React 19 resets
+   * uncontrolled inputs once a form action settles, so a rejected entry
+   * used to clear the description and date while leaving the lines —
+   * losing exactly the fields that are slowest to retype.
+   */
+  const [description, setDescription] = useState("");
+  const [date, setDate] = useState(today);
+  const [reference, setReference] = useState("");
 
   const grouped = useMemo(
     () =>
@@ -101,7 +125,7 @@ export function EntryForm({
     );
 
   return (
-    <form action={formAction} className="flex flex-col gap-4">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       {state.error ? <Alert>{state.error}</Alert> : null}
 
       <Card className="p-4 sm:p-5">
@@ -112,18 +136,32 @@ export function EntryForm({
               name="description"
               required
               placeholder="e.g. Invoice #1024 — Acme Corp"
-              defaultValue=""
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
             />
           </Field>
 
           <Field label="Date" htmlFor="date">
-            <Input id="date" name="date" type="date" required defaultValue={today} />
+            <Input
+              id="date"
+              name="date"
+              type="date"
+              required
+              value={date}
+              onChange={(event) => setDate(event.target.value)}
+            />
           </Field>
         </div>
 
         <div className="mt-4">
           <Field label="Reference" htmlFor="reference" hint="Optional — invoice or receipt number">
-            <Input id="reference" name="reference" placeholder="INV-1024" />
+            <Input
+              id="reference"
+              name="reference"
+              placeholder="INV-1024"
+              value={reference}
+              onChange={(event) => setReference(event.target.value)}
+            />
           </Field>
         </div>
       </Card>
@@ -274,7 +312,7 @@ export function EntryForm({
       </Card>
 
       <div className="flex justify-end gap-2">
-        <SubmitButton disabled={!balanced} />
+        <SubmitButton disabled={!balanced} pending={isPending} />
       </div>
     </form>
   );

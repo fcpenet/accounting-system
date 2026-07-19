@@ -1,3 +1,5 @@
+import { isValidISODate as isValid } from "@acct/core";
+
 /**
  * ISO date strings (YYYY-MM-DD) everywhere, never Date objects.
  *
@@ -35,8 +37,10 @@ export function yearStart(iso: string): string {
 
 /** "2026-07-19" -> "19 Jul 2026" */
 export function formatDate(iso: string): string {
-  const [year, month, day] = iso.split("-");
-  if (!year || !month || !day) return iso;
+  // Anything that isn't a real date is shown as-is rather than crashing the
+  // page it appears on.
+  if (!isValid(iso)) return iso;
+  const [year, month, day] = iso.split("-") as [string, string, string];
   const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
   return new Intl.DateTimeFormat("en-GB", {
     day: "numeric",
@@ -56,6 +60,7 @@ export function formatMonth(iso: string): string {
   }).format(date);
 }
 
-export function isValidISODate(value: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value));
-}
+// Re-exported from core so the app and the accounting engine agree on what
+// counts as a date. Date.parse would accept 2026-02-30 and silently mean
+// 2 March.
+export { isValidISODate } from "@acct/core";

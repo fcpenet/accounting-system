@@ -7,6 +7,7 @@
  */
 
 import { type Account, type Direction, isDebitNormal } from "./accounts";
+import { isValidISODate } from "./dates";
 import { type Cents, ZERO, add, cents, formatAmount } from "./money";
 
 export interface DraftLine {
@@ -34,8 +35,6 @@ export type ValidationResult =
   | { ok: true; totals: { debits: Cents; credits: Cents } }
   | { ok: false; errors: ValidationError[] };
 
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-
 /**
  * Validate a draft entry against the chart of accounts.
  *
@@ -49,7 +48,7 @@ export function validateEntry(
 ): ValidationResult {
   const errors: ValidationError[] = [];
 
-  if (!ISO_DATE.test(draft.date) || Number.isNaN(Date.parse(draft.date))) {
+  if (!isValidISODate(draft.date)) {
     errors.push({
       lineIndex: null,
       message: `"${draft.date}" is not a valid date (expected YYYY-MM-DD)`,

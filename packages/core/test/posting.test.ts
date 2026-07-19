@@ -168,3 +168,18 @@ describe("buildReversal", () => {
     expect([...net.values()].every((v) => v === 0)).toBe(true);
   });
 });
+
+describe("date validation", () => {
+  it("rejects a day that doesn't exist in that month", () => {
+    // Before isValidISODate, Date.parse rolled 30 February over to 2 March
+    // and the entry posted into the wrong accounting period.
+    const result = validateEntry(draft({ date: "2026-02-30" }), chart);
+    expect(result.ok).toBe(false);
+    expect(errorText(result)).toContain("not a valid date");
+  });
+
+  it("accepts 29 February in a leap year but not otherwise", () => {
+    expect(validateEntry(draft({ date: "2024-02-29" }), chart).ok).toBe(true);
+    expect(validateEntry(draft({ date: "2026-02-29" }), chart).ok).toBe(false);
+  });
+});

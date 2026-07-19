@@ -1,9 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { signInAction } from "@/actions/auth";
-import { idle } from "@/lib/action-state";
+import { type ActionState, idle } from "@/lib/action-state";
 import { Alert, Button, Card, Field, Input } from "@/components/ui";
 
 function SubmitButton() {
@@ -16,7 +16,24 @@ function SubmitButton() {
 }
 
 export function LoginForm() {
-  const [state, formAction] = useActionState(signInAction, idle);
+  /*
+   * Controlled so a failed attempt doesn't wipe the email — React 19 resets
+   * uncontrolled inputs once a form action settles. Mistyping a password
+   * should cost you the password field, not both.
+   */
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const [state, formAction] = useActionState(
+    async (prev: ActionState, form: FormData): Promise<ActionState> => {
+      const result = await signInAction(prev, form);
+      // Wrong password? Clear just that field and leave the cursor's work
+      // on the email intact.
+      setPassword("");
+      return result;
+    },
+    idle,
+  );
 
   return (
     <Card className="p-5">
@@ -34,6 +51,8 @@ export function LoginForm() {
             autoCorrect="off"
             required
             placeholder="you@example.com"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
           />
         </Field>
 
@@ -44,6 +63,8 @@ export function LoginForm() {
             type="password"
             autoComplete="current-password"
             required
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
           />
         </Field>
 
