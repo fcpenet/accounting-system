@@ -102,12 +102,33 @@ equity. Run it after a migration or a bulk import.
    TURSO_DATABASE_URL="libsql://..." TURSO_AUTH_TOKEN="..." pnpm db:push
    ```
 
-3. **Import the repo in Vercel.** `vercel.json` already sets the build command,
-   install command and output directory for the monorepo layout — leave the
-   framework preset on Next.js and don't set a root directory.
+3. **Import the repo in Vercel and set the Root Directory to `apps/web`.**
+
+   This step is not optional, and it is the one that trips people up. Vercel
+   looks for `next` in the `package.json` at the Root Directory. This repo's
+   root `package.json` is a workspace manifest with no `next` in it, so
+   leaving Root Directory at the repo root fails with:
+
+   > No Next.js version detected. Make sure your package.json has "next" in
+   > either "dependencies" or "devDependencies".
+
+   Pointing it at `apps/web` lets framework detection find Next.js. Leave
+   "Include source files outside of the Root Directory" enabled (the default)
+   so `packages/*` still resolve — `transpilePackages` compiles them from
+   source at build time.
+
+   There is deliberately no `vercel.json`. Vercel reads that file from the
+   Root Directory, so a root-level one would be ignored once Root Directory
+   is `apps/web`; auto-detection handles the build correctly on its own.
+   pnpm workspaces are detected automatically and installed from the repo
+   root.
 
 4. **Add both environment variables** in Vercel (Production and Preview), then
    deploy.
+
+   `next build` does not need them — the database client is constructed lazily
+   on first query, so a missing variable surfaces at runtime rather than
+   breaking the build.
 
 Preview deployments share whatever database you point them at. If you want them
 isolated, create a second Turso database and scope those variables to Preview.
