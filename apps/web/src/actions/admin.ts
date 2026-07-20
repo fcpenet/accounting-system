@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { AuthError, provisionOrganization } from "@acct/auth";
 import { fail } from "@/lib/action-state";
-import { requireAdmin } from "@/lib/auth";
+import { requireSuperuser } from "@/lib/auth";
 import type { InviteState } from "@/actions/invitations";
 
 function text(form: FormData, key: string): string {
@@ -20,22 +20,22 @@ async function origin(): Promise<string> {
 }
 
 /**
- * Platform-admin only: create an organization and mint the owner-invite link.
- * The admin copies the link to the intended owner, who accepts it to set up
- * their account and take ownership.
+ * Superuser only: create an organization and mint its admin-invite link. The
+ * superuser copies the link to the intended admin, who accepts it to set up
+ * their account and run the org.
  */
 export async function createOrganizationAction(
   _prev: InviteState,
   form: FormData,
 ): Promise<InviteState> {
-  await requireAdmin(); // redirects non-admins; the real gate
+  await requireSuperuser(); // redirects non-superusers; the real gate
 
   const name = text(form, "name");
-  const ownerEmail = text(form, "ownerEmail");
+  const adminEmail = text(form, "adminEmail");
 
   try {
-    const { token, ownerEmail: email } = await provisionOrganization({ name, ownerEmail });
-    revalidatePath("/admin");
+    const { token, adminEmail: email } = await provisionOrganization({ name, adminEmail });
+    revalidatePath("/superuser");
     return {
       ok: true,
       link: `${await origin()}/invite/${token}`,

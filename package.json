@@ -18,8 +18,8 @@
     "db:seed": "dotenv -e .env.local -- tsx scripts/seed.ts",
     "db:verify": "dotenv -e .env.local -- tsx scripts/verify.ts",
     "dev:session": "dotenv -e .env.local -- tsx scripts/dev-session.ts",
-    "admin:grant": "dotenv -e .env.local -- tsx scripts/set-admin.ts grant",
-    "admin:revoke": "dotenv -e .env.local -- tsx scripts/set-admin.ts revoke"
+    "superuser:grant": "dotenv -e .env.local -- tsx scripts/set-superuser.ts grant",
+    "superuser:revoke": "dotenv -e .env.local -- tsx scripts/set-superuser.ts revoke"
   },
   "dependencies": {
     "@acct/auth": "workspace:*",

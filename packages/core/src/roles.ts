@@ -1,23 +1,30 @@
 /**
  * Membership roles and what each may do.
  *
+ * Two levels of privilege, kept separate:
+ *
+ *   - **superuser** — a global flag (users.is_superuser), not a role here. The
+ *     only actor that can create organizations. Managed out-of-band.
+ *   - **role** — a member's standing *within* one organization: admin, editor,
+ *     or viewer. That's what this file defines.
+ *
  * One place decides permissions so the UI (which buttons to show) and the
  * server (whether to allow a mutation) can never drift apart. The server is
  * always the authority — a hidden button is a convenience, `can()` on the
  * action is the guard.
  */
 
-export const ROLES = ["owner", "editor", "viewer"] as const;
+export const ROLES = ["admin", "editor", "viewer"] as const;
 export type Role = (typeof ROLES)[number];
 
 export const ROLE_LABELS: Record<Role, string> = {
-  owner: "Owner",
+  admin: "Admin",
   editor: "Editor",
   viewer: "Viewer",
 };
 
 export const ROLE_DESCRIPTIONS: Record<Role, string> = {
-  owner: "Full access, including inviting and removing members",
+  admin: "Manage members and roles, plus full bookkeeping",
   editor: "Post and reverse entries, manage accounts",
   viewer: "View books and reports only",
 };
@@ -27,13 +34,13 @@ export type Permission =
   | "view"
   /** Post and reverse journal entries; create and archive accounts. */
   | "write"
-  /** Invite members, change roles, remove members. */
+  /** Invite members, change their roles, remove them. */
   | "manageMembers"
   /** Rename or delete the organization. */
   | "manageOrg";
 
 const PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
-  owner: new Set<Permission>(["view", "write", "manageMembers", "manageOrg"]),
+  admin: new Set<Permission>(["view", "write", "manageMembers", "manageOrg"]),
   editor: new Set<Permission>(["view", "write"]),
   viewer: new Set<Permission>(["view"]),
 };
@@ -46,6 +53,9 @@ export function isRole(value: unknown): value is Role {
   return typeof value === "string" && (ROLES as readonly string[]).includes(value);
 }
 
-/** Roles an owner may hand out via an invitation. Not "owner" — ownership
- *  transfer is a separate, deliberate action, not something an invite does. */
-export const INVITABLE_ROLES: readonly Role[] = ["editor", "viewer"];
+/**
+ * Roles an admin may assign — by invitation or by changing a member's role.
+ * All three: an admin can create other admins, which is consistent with being
+ * able to change any member's role anyway.
+ */
+export const ASSIGNABLE_ROLES: readonly Role[] = ["admin", "editor", "viewer"];

@@ -1,23 +1,23 @@
 import type { Metadata } from "next";
 import { Card, CardHeader, EmptyState, PageHeader } from "@/components/ui";
-import { requireAdmin } from "@/lib/auth";
+import { requireSuperuser } from "@/lib/auth";
 import { formatDate } from "@/lib/dates";
 import { listAllOrganizations } from "@/lib/queries";
 import { CreateOrgForm } from "./create-org-form";
 
-export const metadata: Metadata = { title: "Admin" };
+export const metadata: Metadata = { title: "Superuser" };
 
 export default async function AdminPage() {
-  // Non-admins are redirected to their dashboard — the area doesn't exist
+  // Non-superusers are redirected to their dashboard — the area doesn't exist
   // for them.
-  await requireAdmin();
+  await requireSuperuser();
   const orgs = await listAllOrganizations();
 
   return (
     <>
       <PageHeader
-        title="Administration"
-        description="Create organizations and invite their owners. Platform admin only."
+        title="Superuser"
+        description="Create organizations and invite their first admin. Superuser only."
       />
 
       <div className="mb-4">

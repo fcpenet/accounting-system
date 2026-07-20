@@ -5,14 +5,16 @@ import { Card, CardHeader, EmptyState, PageHeader } from "@/components/ui";
 import { requireSession } from "@/lib/auth";
 import { formatDate } from "@/lib/dates";
 import { listMembers } from "@/lib/queries";
+import type { Role } from "@acct/core";
 import { InviteForm } from "./invite-form";
+import { MemberControls } from "./member-controls";
 import { RevokeButton } from "./revoke-button";
 
 export const metadata: Metadata = { title: "Team" };
 
-function RoleBadge({ role }: { role: "owner" | "editor" | "viewer" }) {
+function RoleBadge({ role }: { role: Role }) {
   const tone = {
-    owner: "bg-accent-soft text-accent",
+    admin: "bg-accent-soft text-accent",
     editor: "bg-positive/10 text-positive",
     viewer: "bg-line text-ink-muted",
   }[role];
@@ -64,12 +66,18 @@ export default async function TeamPage() {
                 <p className="text-ink-subtle truncate text-xs">{member.email}</p>
               </div>
               <div className="flex items-center gap-2">
-                {member.isPlatformAdmin ? (
+                {member.isSuperuser ? (
                   <span className="text-warning-ink border-warning-ink/30 shrink-0 rounded border px-2 py-0.5 text-xs font-medium">
-                    Admin
+                    Superuser
                   </span>
                 ) : null}
-                <RoleBadge role={member.role} />
+                {/* Admins manage others; your own row stays a plain badge so
+                    you can't lock yourself out or self-demote here. */}
+                {canManage && member.id !== user.id ? (
+                  <MemberControls userId={member.id} role={member.role} />
+                ) : (
+                  <RoleBadge role={member.role} />
+                )}
               </div>
             </li>
           ))}

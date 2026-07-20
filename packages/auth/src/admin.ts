@@ -16,26 +16,26 @@ function hashToken(token: string): string {
 }
 
 /**
- * Provision a new organization and issue an owner invitation for it.
+ * Provision a new organization and issue an admin invitation for it.
  *
- * Platform-admin only — the caller must gate on `isPlatformAdmin` before
- * calling. Unlike a normal invite, this creates an *owner* and doesn't
- * require the caller to be a member of the org, because the org has no
- * members yet. The admin sends the returned link to the intended owner, who
- * accepts it to create their account.
+ * Superuser only — the caller must gate on `isSuperuser` before calling.
+ * Unlike a normal invite, this creates the org's first *admin* and doesn't
+ * require the caller to be a member (the org has no members yet). The
+ * superuser sends the returned link to the intended admin, who accepts it to
+ * create their account.
  *
- * The org and its owner-invite are written in one transaction: an org with no
+ * The org and its admin-invite are written in one transaction: an org with no
  * way in would be dead on arrival.
  */
 export async function provisionOrganization(
-  input: { name: string; ownerEmail: string; currency?: string },
+  input: { name: string; adminEmail: string; currency?: string },
   db: Database = defaultDb,
-): Promise<{ orgId: string; token: string; ownerEmail: string }> {
+): Promise<{ orgId: string; token: string; adminEmail: string }> {
   const name = input.name.trim();
   if (name === "") throw new AuthError("Organization name is required");
 
-  const ownerEmail = normalizeEmail(input.ownerEmail);
-  assertValidEmail(ownerEmail);
+  const adminEmail = normalizeEmail(input.adminEmail);
+  assertValidEmail(adminEmail);
 
   // Same case-insensitive rule the register path enforces.
   const [clash] = await db
@@ -48,10 +48,10 @@ export async function provisionOrganization(
   const [existingUser] = await db
     .select({ id: users.id })
     .from(users)
-    .where(eq(users.email, ownerEmail))
+    .where(eq(users.email, adminEmail))
     .limit(1);
   if (existingUser) {
-    throw new AuthError("That email already has an account; choose a different owner");
+    throw new AuthError("That email already has an account; choose a different admin");
   }
 
   const orgId = crypto.randomUUID();
@@ -68,8 +68,8 @@ export async function provisionOrganization(
       await tx.insert(invitations).values({
         id: crypto.randomUUID(),
         orgId,
-        email: ownerEmail,
-        role: "owner",
+        email: adminEmail,
+        role: "admin",
         tokenHash: hashToken(token),
         expiresAt,
       });
@@ -84,5 +84,5 @@ export async function provisionOrganization(
     throw error;
   }
 
-  return { orgId, token, ownerEmail };
+  return { orgId, token, adminEmail };
 }

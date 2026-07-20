@@ -23,7 +23,7 @@ export function CreateOrgForm() {
     idle,
   );
   const [name, setName] = useState("");
-  const [ownerEmail, setOwnerEmail] = useState("");
+  const [adminEmail, setAdminEmail] = useState("");
 
   return (
     <Card className="p-4 sm:p-5">
@@ -43,21 +43,21 @@ export function CreateOrgForm() {
           </Field>
 
           <Field
-            label="Owner's email"
-            htmlFor="owner-email"
-            hint="They'll get an owner-invite link"
+            label="Admin's email"
+            htmlFor="admin-email"
+            hint="They'll get an admin-invite link"
           >
             <Input
-              id="owner-email"
-              name="ownerEmail"
+              id="admin-email"
+              name="adminEmail"
               type="email"
               inputMode="email"
               autoCapitalize="none"
               autoCorrect="off"
               required
-              placeholder="owner@example.com"
-              value={ownerEmail}
-              onChange={(event) => setOwnerEmail(event.target.value)}
+              placeholder="admin@example.com"
+              value={adminEmail}
+              onChange={(event) => setAdminEmail(event.target.value)}
             />
           </Field>
         </div>
@@ -69,11 +69,11 @@ export function CreateOrgForm() {
         {state.ok && state.link ? (
           <div className="border-line border-t pt-4">
             <Alert tone="success">
-              Organization created. Send this owner-invite link to{" "}
+              Organization created. Send this admin-invite link to{" "}
               <strong>{state.invitedEmail}</strong>.
             </Alert>
             <div className="mt-3">
-              <CopyLink url={state.link} label="Owner invitation link" />
+              <CopyLink url={state.link} label="Admin invitation link" />
             </div>
           </div>
         ) : null}

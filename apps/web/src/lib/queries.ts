@@ -280,7 +280,7 @@ export interface Member {
   email: string;
   name: string | null;
   role: Role;
-  isPlatformAdmin: boolean;
+  isSuperuser: boolean;
 }
 
 /** Everyone in an org, owners first, then by email. */
@@ -291,20 +291,20 @@ export async function listMembers(orgId: string): Promise<Member[]> {
       email: users.email,
       name: users.name,
       role: users.role,
-      isPlatformAdmin: users.isPlatformAdmin,
+      isSuperuser: users.isSuperuser,
     })
     .from(users)
     .where(eq(users.orgId, orgId))
     .orderBy(asc(users.email));
 
-  const rank: Record<Role, number> = { owner: 0, editor: 1, viewer: 2 };
+  const rank: Record<Role, number> = { admin: 0, editor: 1, viewer: 2 };
   return rows.sort((a, b) => rank[a.role] - rank[b.role]);
 }
 
 // ---------------------------------------------------------------------------
 // Platform-admin: cross-org read. These are the ONLY functions that
 // deliberately reach across organizations, and they must never be called
-// outside a requireAdmin() gate.
+// outside a requireSuperuser() gate.
 // ---------------------------------------------------------------------------
 
 export interface OrgSummary {

@@ -26,8 +26,8 @@ export interface SessionUser {
   currency: string;
   /** Role within the org — drives what write actions are allowed. */
   role: Role;
-  /** Global platform administrator. */
-  isPlatformAdmin: boolean;
+  /** Global superuser — the only actor that can create organizations. */
+  isSuperuser: boolean;
 }
 
 export interface ActiveSession {
@@ -73,7 +73,7 @@ export async function validateSession(
       orgName: organizations.name,
       currency: organizations.currency,
       role: users.role,
-      isPlatformAdmin: users.isPlatformAdmin,
+      isSuperuser: users.isSuperuser,
     })
     .from(sessions)
     .innerJoin(users, eq(sessions.userId, users.id))
@@ -107,7 +107,7 @@ export async function validateSession(
       orgName: row.orgName,
       currency: row.currency,
       role: row.role,
-      isPlatformAdmin: row.isPlatformAdmin,
+      isSuperuser: row.isSuperuser,
     },
   };
 }

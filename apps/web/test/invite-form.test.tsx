@@ -21,13 +21,13 @@ beforeEach(() => {
 });
 
 describe("InviteForm", () => {
-  it("defaults to editor and offers only invitable roles", () => {
+  it("defaults to editor and offers the assignable roles", () => {
     render(<InviteForm />);
     const role = screen.getByLabelText("Role") as HTMLSelectElement;
     expect(role).toHaveValue("editor");
     const options = [...role.options].map((o) => o.value);
-    // Never "owner" — ownership isn't handed out by invitation.
-    expect(options).toEqual(["editor", "viewer"]);
+    // An admin can grant any role, including admin.
+    expect(options).toEqual(["admin", "editor", "viewer"]);
   });
 
   it("sends the email and role to the server", async () => {

@@ -12,6 +12,22 @@ CREATE TABLE `accounts` (
 --> statement-breakpoint
 CREATE UNIQUE INDEX `accounts_org_code_unique` ON `accounts` (`org_id`,`code`);--> statement-breakpoint
 CREATE INDEX `accounts_org_type_idx` ON `accounts` (`org_id`,`type`);--> statement-breakpoint
+CREATE TABLE `invitations` (
+	`id` text PRIMARY KEY NOT NULL,
+	`org_id` text NOT NULL,
+	`email` text NOT NULL,
+	`role` text NOT NULL,
+	`token_hash` text NOT NULL,
+	`invited_by_user_id` text,
+	`expires_at` integer NOT NULL,
+	`accepted_at` integer,
+	`created_at` integer DEFAULT (unixepoch() * 1000) NOT NULL,
+	FOREIGN KEY (`org_id`) REFERENCES `organizations`(`id`) ON UPDATE no action ON DELETE cascade,
+	FOREIGN KEY (`invited_by_user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE set null
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `invitations_token_unique` ON `invitations` (`token_hash`);--> statement-breakpoint
+CREATE INDEX `invitations_org_email_idx` ON `invitations` (`org_id`,`email`);--> statement-breakpoint
 CREATE TABLE `journal_entries` (
 	`id` text PRIMARY KEY NOT NULL,
 	`org_id` text NOT NULL,
@@ -53,6 +69,7 @@ CREATE TABLE `organizations` (
 	`created_at` integer DEFAULT (unixepoch() * 1000) NOT NULL
 );
 --> statement-breakpoint
+CREATE UNIQUE INDEX `organizations_name_unique` ON `organizations` (lower("name"));--> statement-breakpoint
 CREATE TABLE `sessions` (
 	`id` text PRIMARY KEY NOT NULL,
 	`user_id` text NOT NULL,
@@ -68,8 +85,11 @@ CREATE TABLE `users` (
 	`email` text NOT NULL,
 	`password_hash` text,
 	`name` text,
+	`role` text DEFAULT 'admin' NOT NULL,
+	`is_superuser` integer DEFAULT false NOT NULL,
 	`created_at` integer DEFAULT (unixepoch() * 1000) NOT NULL,
 	FOREIGN KEY (`org_id`) REFERENCES `organizations`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `users_email_unique` ON `users` (`email`);
+CREATE UNIQUE INDEX `users_email_unique` ON `users` (`email`);--> statement-breakpoint
+CREATE INDEX `users_org_idx` ON `users` (`org_id`);

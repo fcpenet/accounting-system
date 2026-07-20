@@ -1,1 +1,0 @@
-CREATE UNIQUE INDEX `organizations_name_unique` ON `organizations` (lower("name"));

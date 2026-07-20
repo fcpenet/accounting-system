@@ -72,9 +72,9 @@ const NAV_ITEMS: NavItem[] = [
   },
 ];
 
-const ADMIN_ITEM: NavItem = {
-  href: "/admin",
-  label: "Admin",
+const SUPERUSER_ITEM: NavItem = {
+  href: "/superuser",
+  label: "Superuser",
   icon: icon(
     <>
       <path d="M12 3l7 4v5c0 4-3 7-7 9-4-2-7-5-7-9V7l7-4Z" />
@@ -86,16 +86,16 @@ function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-/** Nav items for this user: the Admin entry only when they're a platform
- *  admin. The page still gates itself; this just hides a dead link. */
-function navItemsFor(isAdmin: boolean): NavItem[] {
-  return isAdmin ? [...NAV_ITEMS, ADMIN_ITEM] : NAV_ITEMS;
+/** Nav items for this user: the Superuser entry only when they're a
+ *  superuser. The page still gates itself; this just hides a dead link. */
+function navItemsFor(isSuperuser: boolean): NavItem[] {
+  return isSuperuser ? [...NAV_ITEMS, SUPERUSER_ITEM] : NAV_ITEMS;
 }
 
 /** Fixed bottom tab bar — the primary navigation on phones. */
-export function MobileNav({ isAdmin = false }: { isAdmin?: boolean }) {
+export function MobileNav({ isSuperuser = false }: { isSuperuser?: boolean }) {
   const pathname = usePathname();
-  const items = navItemsFor(isAdmin);
+  const items = navItemsFor(isSuperuser);
 
   return (
     <nav
@@ -129,15 +129,15 @@ export function MobileNav({ isAdmin = false }: { isAdmin?: boolean }) {
 /** Persistent sidebar from `lg` up. */
 export function DesktopNav({
   orgName,
-  isAdmin = false,
+  isSuperuser = false,
   children,
 }: {
   orgName: string;
-  isAdmin?: boolean;
+  isSuperuser?: boolean;
   children?: ReactNode | undefined;
 }) {
   const pathname = usePathname();
-  const items = navItemsFor(isAdmin);
+  const items = navItemsFor(isSuperuser);
 
   return (
     <aside className="border-line bg-surface hidden w-60 shrink-0 flex-col border-r lg:flex">

@@ -1,1 +1,0 @@
-ALTER TABLE `users` ADD `is_platform_admin` integer DEFAULT false NOT NULL;

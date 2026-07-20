@@ -6,9 +6,9 @@
  * Everything else on live — orgs, accounts, journal entries — is already
  * intact and is left untouched.
  *
- * The live users table has newer columns (role, is_platform_admin) with
- * defaults, so the older rows insert cleanly: restored users come back as
- * owners of their org, which is what they were.
+ * The live users table has newer columns (role, the superuser flag) with
+ * defaults, so the older rows insert cleanly. role is set to 'admin'
+ * explicitly below, since prod's column default is the retired 'owner'.
  *
  *   SOURCE_TURSO_URL=libsql://acct-restore-...  \
  *   SOURCE_TURSO_TOKEN=...                       \
@@ -58,9 +58,13 @@ for (const u of fromRows) {
   }
   console.log(`  ${commit ? "restore" : "would restore"} ${email} -> org ${u["org_id"]}`);
   if (commit) {
+    // role is set explicitly to 'admin' rather than left to the column
+    // default: production's default is the now-retired 'owner', which the
+    // current code doesn't recognise. Restored users were org owners, which
+    // maps to admin.
     await live.execute({
-      sql: `INSERT INTO users (id, org_id, email, password_hash, name, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)`,
+      sql: `INSERT INTO users (id, org_id, email, password_hash, name, role, created_at)
+            VALUES (?, ?, ?, ?, ?, 'admin', ?)`,
       args: [
         u["id"] as string,
         u["org_id"] as string,

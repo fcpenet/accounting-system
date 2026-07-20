@@ -58,20 +58,20 @@ export const users = sqliteTable(
     passwordHash: text("password_hash"),
     name: text("name"),
     /**
-     * Membership role within the org. The first user of an org is its owner;
-     * invited users get the role their invitation carried. Permissions are
-     * defined once in @acct/core (see roles.ts).
+     * Membership role within the org: admin, editor, or viewer. The first
+     * user of an org is an admin; invited users get the role their invitation
+     * carried. Permissions are defined once in @acct/core (see roles.ts).
      */
-    role: text("role", { enum: ["owner", "editor", "viewer"] })
+    role: text("role", { enum: ["admin", "editor", "viewer"] })
       .notNull()
-      .default("owner"),
+      .default("admin"),
     /**
-     * Global platform administrator. Orthogonal to the org `role`: an admin
-     * manages the whole application (creating organizations, etc.) on top of
-     * being a normal member of their own org. Granted out-of-band, never via
-     * self-service — see scripts/set-admin.ts.
+     * Global superuser. Orthogonal to the org `role`: a superuser manages the
+     * whole application — the only actor that can create organizations — on
+     * top of being a normal member of their own org. Granted out-of-band,
+     * never via self-service (see scripts/set-superuser.ts).
      */
-    isPlatformAdmin: integer("is_platform_admin", { mode: "boolean" })
+    isSuperuser: integer("is_superuser", { mode: "boolean" })
       .notNull()
       .default(false),
     createdAt: createdAt(),
@@ -98,7 +98,7 @@ export const invitations = sqliteTable(
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
     email: text("email").notNull(),
-    role: text("role", { enum: ["owner", "editor", "viewer"] }).notNull(),
+    role: text("role", { enum: ["admin", "editor", "viewer"] }).notNull(),
     /** SHA-256 of the invite token; the raw token lives only in the link. */
     tokenHash: text("token_hash").notNull(),
     invitedByUserId: text("invited_by_user_id").references(() => users.id, {

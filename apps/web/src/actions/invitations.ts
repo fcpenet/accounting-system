@@ -7,8 +7,10 @@ import { type Role, isRole } from "@acct/core";
 import {
   AuthError,
   acceptInvitation,
+  changeMemberRole,
   createInvitation,
   createSession,
+  removeMember,
   revokeInvitation,
 } from "@acct/auth";
 import { type ActionState, fail } from "@/lib/action-state";
@@ -120,4 +122,55 @@ export async function acceptInvitationAction(
   await setSessionCookie(sessionToken, expiresAt);
 
   redirect("/dashboard");
+}
+
+/** Admin-only: remove a member from the org. */
+export async function removeMemberAction(
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
+  let session;
+  try {
+    session = await requirePermission("manageMembers");
+  } catch (error) {
+    if (error instanceof ForbiddenError) return fail("Only an admin can remove members.");
+    throw error;
+  }
+
+  try {
+    await removeMember(session.user.orgId, session.user.id, text(form, "userId"));
+  } catch (error) {
+    if (error instanceof AuthError) return fail(error.message);
+    console.error("remove member failed", error);
+    return fail("Could not remove the member. Please try again.");
+  }
+  revalidatePath("/team");
+  return { ok: true };
+}
+
+/** Admin-only: change a member's role. */
+export async function changeMemberRoleAction(
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
+  let session;
+  try {
+    session = await requirePermission("manageMembers");
+  } catch (error) {
+    if (error instanceof ForbiddenError) return fail("Only an admin can change roles.");
+    throw error;
+  }
+
+  const roleInput = text(form, "role");
+  if (!isRole(roleInput)) return fail("Invalid role");
+
+  try {
+    await changeMemberRole(session.user.orgId, session.user.id, text(form, "userId"), roleInput);
+  } catch (error) {
+    if (error instanceof AuthError) return fail(error.message);
+    console.error("change role failed", error);
+    return fail("Could not change the role. Please try again.");
+  }
+  revalidatePath("/team");
+  return { ok: true };
 }

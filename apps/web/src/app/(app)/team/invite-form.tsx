@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { INVITABLE_ROLES, ROLE_DESCRIPTIONS, ROLE_LABELS } from "@acct/core";
+import { ASSIGNABLE_ROLES, ROLE_DESCRIPTIONS, ROLE_LABELS } from "@acct/core";
 import { type InviteState, createInvitationAction } from "@/actions/invitations";
 import { idle } from "@/lib/action-state";
 import { CopyLink } from "@/components/copy-link";
@@ -25,7 +25,7 @@ export function InviteForm() {
   // Controlled so a server error doesn't wipe the fields (React 19 resets
   // uncontrolled inputs after an action) — same lesson as the signup form.
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<(typeof INVITABLE_ROLES)[number]>("editor");
+  const [role, setRole] = useState<(typeof ASSIGNABLE_ROLES)[number]>("editor");
 
   return (
     <Card className="p-4 sm:p-5">
@@ -54,10 +54,10 @@ export function InviteForm() {
               name="role"
               value={role}
               onChange={(event) =>
-                setRole(event.target.value as (typeof INVITABLE_ROLES)[number])
+                setRole(event.target.value as (typeof ASSIGNABLE_ROLES)[number])
               }
             >
-              {INVITABLE_ROLES.map((r) => (
+              {ASSIGNABLE_ROLES.map((r) => (
                 <option key={r} value={r}>
                   {ROLE_LABELS[r]}
                 </option>

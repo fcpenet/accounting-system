@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  INVITABLE_ROLES,
+  ASSIGNABLE_ROLES,
   type Permission,
   ROLES,
   type Role,
@@ -12,7 +12,7 @@ describe("can", () => {
   // The full permission matrix, asserted explicitly. If someone widens a
   // role's powers, exactly one of these flips and the diff is obvious.
   const matrix: Record<Role, Record<Permission, boolean>> = {
-    owner: { view: true, write: true, manageMembers: true, manageOrg: true },
+    admin: { view: true, write: true, manageMembers: true, manageOrg: true },
     editor: { view: true, write: true, manageMembers: false, manageOrg: false },
     viewer: { view: true, write: false, manageMembers: false, manageOrg: false },
   };
@@ -29,8 +29,8 @@ describe("can", () => {
     expect(ROLES.every((r) => can(r, "view"))).toBe(true);
   });
 
-  it("lets only owners manage members", () => {
-    expect(ROLES.filter((r) => can(r, "manageMembers"))).toEqual(["owner"]);
+  it("lets only admins manage members", () => {
+    expect(ROLES.filter((r) => can(r, "manageMembers"))).toEqual(["admin"]);
   });
 
   it("keeps viewers strictly read-only", () => {
@@ -42,19 +42,18 @@ describe("can", () => {
 
 describe("isRole", () => {
   it("accepts the three roles", () => {
-    for (const r of ["owner", "editor", "viewer"]) expect(isRole(r)).toBe(true);
+    for (const r of ["admin", "editor", "viewer"]) expect(isRole(r)).toBe(true);
   });
 
   it("rejects anything else", () => {
-    for (const v of ["admin", "", "OWNER", null, undefined, 1, {}]) {
+    for (const v of ["owner", "superuser", "", "ADMIN", null, undefined, 1, {}]) {
       expect(isRole(v)).toBe(false);
     }
   });
 });
 
-describe("INVITABLE_ROLES", () => {
-  it("excludes owner — ownership isn't handed out by invitation", () => {
-    expect(INVITABLE_ROLES).not.toContain("owner");
-    expect([...INVITABLE_ROLES].sort()).toEqual(["editor", "viewer"]);
+describe("ASSIGNABLE_ROLES", () => {
+  it("is all three — an admin can assign any role, including admin", () => {
+    expect([...ASSIGNABLE_ROLES].sort()).toEqual(["admin", "editor", "viewer"]);
   });
 });

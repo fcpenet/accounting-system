@@ -54,11 +54,11 @@ export async function requirePermission(
   return session;
 }
 
-/** Gate for the platform-admin area. Non-admins are sent to their dashboard
- *  rather than shown a 403 — the admin area simply doesn't exist for them. */
-export async function requireAdmin(): Promise<ActiveSession> {
+/** Gate for the superuser area. Non-superusers are sent to their dashboard
+ *  rather than shown a 403 — the area simply doesn't exist for them. */
+export async function requireSuperuser(): Promise<ActiveSession> {
   const session = await requireSession();
-  if (!session.user.isPlatformAdmin) redirect("/dashboard");
+  if (!session.user.isSuperuser) redirect("/dashboard");
   return session;
 }
 

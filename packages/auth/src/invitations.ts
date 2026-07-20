@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { type Role, isRole } from "@acct/core";
+import { type Role, can, isRole } from "@acct/core";
 import {
   type Database,
   and,
@@ -38,8 +38,8 @@ export interface InvitationView {
  * Create an invitation. Returns the raw token exactly once — it is never
  * recoverable afterwards, so the caller must surface the link now.
  *
- * `inviterUserId` must belong to an owner of `orgId`; anything less is
- * rejected here rather than trusted from the caller.
+ * `inviterUserId` must be an admin of `orgId` (the manageMembers permission);
+ * anything less is rejected here rather than trusted from the caller.
  */
 export async function createInvitation(
   orgId: string,
@@ -48,10 +48,8 @@ export async function createInvitation(
   role: Role,
   db: Database = defaultDb,
 ): Promise<{ token: string; invitation: InvitationView }> {
-  if (!isRole(role) || role === "owner") {
-    // Ownership isn't handed out through an invite — that's a deliberate
-    // transfer, not a join.
-    throw new AuthError("Choose a role of editor or viewer");
+  if (!isRole(role)) {
+    throw new AuthError("Choose a role of admin, editor, or viewer");
   }
 
   const email = normalizeEmail(emailInput);
@@ -63,8 +61,10 @@ export async function createInvitation(
     .where(eq(users.id, inviterUserId))
     .limit(1);
 
-  if (!inviter || inviter.orgId !== orgId || inviter.role !== "owner") {
-    throw new AuthError("Only an owner can invite members");
+  // Only an admin (manageMembers) can invite. Checked here, not trusted from
+  // the caller.
+  if (!inviter || inviter.orgId !== orgId || !can(inviter.role, "manageMembers")) {
+    throw new AuthError("Only an admin can invite members");
   }
 
   // One account = one org in this model, so someone who already has an
@@ -265,4 +265,101 @@ export async function revokeInvitation(
     .delete(invitations)
     .where(and(eq(invitations.id, invitationId), eq(invitations.orgId, orgId)));
   return result.rowsAffected > 0;
+}
+
+// ---------------------------------------------------------------------------
+// Member management (admins only)
+// ---------------------------------------------------------------------------
+
+async function assertActingAdmin(
+  orgId: string,
+  actingUserId: string,
+  db: Database,
+): Promise<void> {
+  const [actor] = await db
+    .select({ role: users.role, orgId: users.orgId })
+    .from(users)
+    .where(eq(users.id, actingUserId))
+    .limit(1);
+  if (!actor || actor.orgId !== orgId || !can(actor.role, "manageMembers")) {
+    throw new AuthError("Only an admin can manage members");
+  }
+}
+
+/** Count of admins in an org — used to protect the last one. */
+async function adminCount(orgId: string, db: Database): Promise<number> {
+  const rows = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(and(eq(users.orgId, orgId), eq(users.role, "admin")));
+  return rows.length;
+}
+
+/**
+ * Change a member's role. Admins only.
+ *
+ * Refuses to demote the last admin — an org must always have someone who can
+ * manage it. Scoped by org so an admin can't touch another org's members.
+ */
+export async function changeMemberRole(
+  orgId: string,
+  actingUserId: string,
+  targetUserId: string,
+  newRole: Role,
+  db: Database = defaultDb,
+): Promise<void> {
+  if (!isRole(newRole)) throw new AuthError("Invalid role");
+  await assertActingAdmin(orgId, actingUserId, db);
+
+  const [target] = await db
+    .select({ role: users.role, orgId: users.orgId })
+    .from(users)
+    .where(eq(users.id, targetUserId))
+    .limit(1);
+  if (!target || target.orgId !== orgId) throw new AuthError("That member doesn't exist");
+
+  if (target.role === newRole) return; // no-op
+
+  if (target.role === "admin" && newRole !== "admin" && (await adminCount(orgId, db)) <= 1) {
+    throw new AuthError("This is the last admin — promote someone else first");
+  }
+
+  await db
+    .update(users)
+    .set({ role: newRole })
+    .where(and(eq(users.id, targetUserId), eq(users.orgId, orgId)));
+}
+
+/**
+ * Remove a member from the org (deletes the user account). Admins only.
+ *
+ * Journal entries they created stay — `created_by_user_id` is set null by the
+ * foreign key, so history and the audit trail are preserved. Refuses to
+ * remove the last admin, and refuses self-removal (leave that to a separate,
+ * deliberate flow).
+ */
+export async function removeMember(
+  orgId: string,
+  actingUserId: string,
+  targetUserId: string,
+  db: Database = defaultDb,
+): Promise<void> {
+  await assertActingAdmin(orgId, actingUserId, db);
+
+  if (targetUserId === actingUserId) {
+    throw new AuthError("You can't remove yourself");
+  }
+
+  const [target] = await db
+    .select({ role: users.role, orgId: users.orgId })
+    .from(users)
+    .where(eq(users.id, targetUserId))
+    .limit(1);
+  if (!target || target.orgId !== orgId) throw new AuthError("That member doesn't exist");
+
+  if (target.role === "admin" && (await adminCount(orgId, db)) <= 1) {
+    throw new AuthError("This is the last admin — promote someone else first");
+  }
+
+  await db.delete(users).where(and(eq(users.id, targetUserId), eq(users.orgId, orgId)));
 }

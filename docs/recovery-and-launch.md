@@ -1,21 +1,28 @@
 # Recovery & launch runbook
 
 Ordered steps to (1) recover the production users lost to an accidental
-`push --force`, and (2) ship the teams / platform-admin feature safely.
+`push --force`, and (2) ship the teams / superuser feature safely.
 
 ## Current production state (starting point)
 
 - **users: 0** — both accounts were dropped. This is the only loss.
 - **organizations, accounts, journal_entries, journal_lines: intact.**
-- **Schema: already has** `role`, `is_platform_admin`, and the `invitations`
-  table (the accidental `push` applied them — which is also what dropped the
-  users). So the deploy-ordering hazard is already satisfied: prod has the
-  columns the new code reads.
+- **Schema: has an *older* shape** — `role` (default `owner`),
+  `is_platform_admin`, and `invitations` (the accidental `push` applied them —
+  which is also what dropped the users).
 - The **currently deployed code is the pre-teams version**; it works fine
-  against the newer schema (it doesn't select the new columns).
+  against that schema.
 
-Because the schema is already present, **recovery does not require a
-migration**, and deploying the new code is safe whenever you choose.
+⚠️ **The current code no longer matches prod's schema.** The role/superuser
+work renamed `is_platform_admin` → `is_superuser` and the `owner` role →
+`admin`. So before deploying:
+
+- **Recovery itself needs no schema change** — `restore-users.ts` writes
+  `role = 'admin'` explicitly and doesn't touch the renamed column, so it works
+  against prod as-is.
+- **Before Phase 2's deploy**, reconcile the prod schema (Phase 2.0 below), or
+  the new code's session lookup fails on `no such column: is_superuser` and
+  locks everyone out again.
 
 ---
 
@@ -65,8 +72,8 @@ SOURCE_TURSO_URL=<fork-url> SOURCE_TURSO_TOKEN=<fork-token> \
 ```
 
 Users are re-inserted with their original ids, so the two existing session
-rows become valid again — no forced logout. They come back as `owner` of
-their org (the column default), which is what they were.
+rows become valid again — no forced logout. They come back as `admin` (set explicitly by the restore), which is what
+they were.
 
 ### 1.4 Verify recovery
 
@@ -74,7 +81,7 @@ their org (the column default), which is what they were.
 turso db shell accounting-system-fcpenet "SELECT email, role FROM users"
 ```
 
-Expect 2 owners. Then confirm login works on the **live site** (still the old
+Expect 2 admins. Then confirm login works on the **live site** (still the old
 code — that's fine). At this point production is functional again.
 
 ### 1.5 Clean up
@@ -85,20 +92,41 @@ turso db destroy acct-restore   # once you've confirmed the copy
 
 ---
 
-## Phase 2 — Ship teams + platform admin (when ready)
+## Phase 2 — Ship teams + superuser (when ready)
 
 The feature is committed locally (`9fcfb11` + the UI commits) but not pushed.
 
-### 2.1 Grant yourself platform admin
+### 2.0 Reconcile the prod schema (required, before deploy)
 
-The **Admin** nav item and `/admin` only appear for a platform admin. Run
+The new code reads `is_superuser` and expects roles in {admin, editor, viewer}.
+Prod has `is_platform_admin` and a `role` default of `owner`. Apply this
+additive rename (a plain column rename + data update — no table rebuild, no row
+loss) against prod **before** pushing code:
+
+```sql
+ALTER TABLE users RENAME COLUMN is_platform_admin TO is_superuser;
+UPDATE users SET role = 'admin' WHERE role = 'owner';
+UPDATE invitations SET role = 'admin' WHERE role = 'owner';
+```
+
+```bash
+turso db shell accounting-system-fcpenet \
+  "ALTER TABLE users RENAME COLUMN is_platform_admin TO is_superuser"
+# then the two UPDATEs (no-ops if there are no owner rows yet)
+```
+
+Verify: `turso db shell accounting-system-fcpenet "SELECT email, role, is_superuser FROM users"`.
+
+### 2.1 Grant yourself superuser
+
+The **Superuser** nav item and `/superuser` only appear for a superuser. Run
 against production (this is a deliberate prod op; only `db push` is guarded):
 
 ```bash
-pnpm admin:grant me@kikopenetrante.com
+pnpm superuser:grant me@kikopenetrante.com
 ```
 
-> `admin:grant` reads `.env.local`. Do this **before** the env-hygiene switch
+> `superuser:grant` reads `.env.local`. Do this **before** the env-hygiene switch
 > in Phase 3, or run it with your prod env file explicitly.
 
 ### 2.2 Deploy the code
@@ -107,17 +135,17 @@ pnpm admin:grant me@kikopenetrante.com
 git push origin main     # triggers the Vercel build
 ```
 
-Safe now: prod already has `role` / `is_platform_admin` / `invitations`, so
-session lookups won't break. Watch the Vercel build go green.
+Safe once Phase 2.0 is done: prod then has `is_superuser` and valid roles,
+so session lookups won't break. Watch the Vercel build go green.
 
 ### 2.3 Smoke test on the live site
 
 1. Log in as `me@kikopenetrante.com`.
-2. Confirm the **Admin** item is in the nav → open `/admin`.
-3. **Create an organization**: name + an owner email → copy the owner-invite
+2. Confirm the **Superuser** item is in the nav → open `/superuser`.
+3. **Create an organization**: name + an admin email → copy the admin-invite
    link → open it in a private window → set a password → land in the new org
-   as its owner.
-4. Go to **`/team`** as an owner → invite an Editor and a Viewer → copy each
+   as its admin.
+4. Go to **`/team`** as an admin → invite an Editor and a Viewer → copy each
    link → accept in a private window.
 5. Confirm a **viewer cannot post** (the New entry action is refused) and an
    **editor can**.
@@ -149,10 +177,10 @@ TURSO_DATABASE_URL="libsql://accounting-system-fcpenet…"
 TURSO_AUTH_TOKEN="…"
 ```
 
-Run a prod op explicitly, e.g. a future admin grant:
+Run a prod op explicitly, e.g. a future superuser grant:
 
 ```bash
-pnpm exec dotenv -e .env.prod -- tsx scripts/set-admin.ts grant someone@example.com
+pnpm exec dotenv -e .env.prod -- tsx scripts/set-superuser.ts grant someone@example.com
 ```
 
 ### 3.2 Guardrail already in place
@@ -167,7 +195,7 @@ through **`db migrate`** (additive) — never `push`.
 Production schema was originally created with `push`, not migrations, so
 `__drizzle_migrations` is empty and `db migrate` will try to re-run `0000`
 (and fail, since the tables exist). Before relying on `db migrate` against
-prod, baseline the ledger — mark `0000`–`0003` as already applied — then use
+prod, baseline the ledger — mark the current migration as already applied — then use
 `db migrate` for everything after. Until then, apply any new prod schema
 change as reviewed, additive SQL (`ALTER TABLE … ADD COLUMN`), which does not
 rebuild tables and cannot drop rows.
@@ -179,7 +207,8 @@ rebuild tables and cannot drop rows.
 1. Fork prod before the drop → verify 2 users.
 2. `restore-users.ts --commit` → users back on live.
 3. Verify login works.
-4. `pnpm admin:grant me@kikopenetrante.com`.
-5. `git push origin main` → Vercel deploy.
-6. Smoke test: `/admin` create org, `/team` invite, viewer can't post.
+4. Reconcile prod schema (rename `is_platform_admin` → `is_superuser`).
+5. `pnpm superuser:grant me@kikopenetrante.com`.
+6. `git push origin main` → Vercel deploy.
+7. Smoke test: `/superuser` create org, `/team` invite/roles, viewer can't post.
 7. Repoint `.env.local` to a local file; keep prod creds in `.env.prod`.

@@ -38,8 +38,8 @@ beforeAll(async () => {
       id TEXT PRIMARY KEY,
       org_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
       email TEXT NOT NULL, password_hash TEXT, name TEXT,
-      role TEXT NOT NULL DEFAULT 'owner',
-      is_platform_admin INTEGER NOT NULL DEFAULT 0,
+      role TEXT NOT NULL DEFAULT 'admin',
+      is_superuser INTEGER NOT NULL DEFAULT 0,
       created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
     );
     CREATE UNIQUE INDEX users_email_unique ON users (email);
