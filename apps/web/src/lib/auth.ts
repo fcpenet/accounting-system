@@ -2,7 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { type Permission, can } from "@acct/core";
 import {
   type ActiveSession,
@@ -54,11 +54,25 @@ export async function requirePermission(
   return session;
 }
 
-/** Gate for the superuser area. Non-superusers are sent to their dashboard
- *  rather than shown a 403 — the area simply doesn't exist for them. */
+/**
+ * Page gate for the superuser area. A non-superuser gets a 404 ("page not
+ * available") rather than a redirect: a 404 doesn't confirm the page exists,
+ * which is the stronger posture for a management area they shouldn't know
+ * about. The nav also hides the link for them.
+ */
 export async function requireSuperuser(): Promise<ActiveSession> {
   const session = await requireSession();
-  if (!session.user.isSuperuser) redirect("/dashboard");
+  if (!session.user.isSuperuser) notFound();
+  return session;
+}
+
+/**
+ * Page gate for the member-management area (admins). Same 404-not-redirect
+ * posture as `requireSuperuser`.
+ */
+export async function requireManager(): Promise<ActiveSession> {
+  const session = await requireSession();
+  if (!can(session.user.role, "manageMembers")) notFound();
   return session;
 }
 

@@ -4,6 +4,7 @@ import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { type Role, can } from "@acct/core";
 
 interface NavItem {
   href: Route;
@@ -60,17 +61,18 @@ const NAV_ITEMS: NavItem[] = [
       </>,
     ),
   },
-  {
-    href: "/team",
-    label: "Team",
-    icon: icon(
-      <>
-        <circle cx="9" cy="8" r="3" />
-        <path d="M3 20a6 6 0 0 1 12 0M16 5a3 3 0 0 1 0 6M21 20a6 6 0 0 0-3.5-5.5" />
-      </>,
-    ),
-  },
 ];
+
+const TEAM_ITEM: NavItem = {
+  href: "/team",
+  label: "Team",
+  icon: icon(
+    <>
+      <circle cx="9" cy="8" r="3" />
+      <path d="M3 20a6 6 0 0 1 12 0M16 5a3 3 0 0 1 0 6M21 20a6 6 0 0 0-3.5-5.5" />
+    </>,
+  ),
+};
 
 const SUPERUSER_ITEM: NavItem = {
   href: "/superuser",
@@ -86,16 +88,29 @@ function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-/** Nav items for this user: the Superuser entry only when they're a
- *  superuser. The page still gates itself; this just hides a dead link. */
-function navItemsFor(isSuperuser: boolean): NavItem[] {
-  return isSuperuser ? [...NAV_ITEMS, SUPERUSER_ITEM] : NAV_ITEMS;
+/**
+ * Nav items for this user. Team appears only for admins, Superuser only for
+ * superusers — matching the pages, which 404 for anyone else. Hiding the link
+ * keeps a restricted area from being advertised. The page is still the real
+ * gate; this is cosmetic.
+ */
+function navItemsFor(opts: { role: Role; isSuperuser: boolean }): NavItem[] {
+  const items = [...NAV_ITEMS];
+  if (can(opts.role, "manageMembers")) items.push(TEAM_ITEM);
+  if (opts.isSuperuser) items.push(SUPERUSER_ITEM);
+  return items;
 }
 
 /** Fixed bottom tab bar — the primary navigation on phones. */
-export function MobileNav({ isSuperuser = false }: { isSuperuser?: boolean }) {
+export function MobileNav({
+  role,
+  isSuperuser = false,
+}: {
+  role: Role;
+  isSuperuser?: boolean;
+}) {
   const pathname = usePathname();
-  const items = navItemsFor(isSuperuser);
+  const items = navItemsFor({ role, isSuperuser });
 
   return (
     <nav
@@ -129,15 +144,17 @@ export function MobileNav({ isSuperuser = false }: { isSuperuser?: boolean }) {
 /** Persistent sidebar from `lg` up. */
 export function DesktopNav({
   orgName,
+  role,
   isSuperuser = false,
   children,
 }: {
   orgName: string;
+  role: Role;
   isSuperuser?: boolean;
   children?: ReactNode | undefined;
 }) {
   const pathname = usePathname();
-  const items = navItemsFor(isSuperuser);
+  const items = navItemsFor({ role, isSuperuser });
 
   return (
     <aside className="border-line bg-surface hidden w-60 shrink-0 flex-col border-r lg:flex">

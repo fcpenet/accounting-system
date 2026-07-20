@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { AuthError, provisionOrganization } from "@acct/auth";
 import { fail } from "@/lib/action-state";
-import { requireSuperuser } from "@/lib/auth";
+import { requireSession } from "@/lib/auth";
 import type { InviteState } from "@/actions/invitations";
 
 function text(form: FormData, key: string): string {
@@ -28,7 +28,10 @@ export async function createOrganizationAction(
   _prev: InviteState,
   form: FormData,
 ): Promise<InviteState> {
-  await requireSuperuser(); // redirects non-superusers; the real gate
+  // Defense in depth: the /superuser page already 404s for non-superusers,
+  // but the action re-checks so a hand-crafted POST can't provision an org.
+  const session = await requireSession();
+  if (!session.user.isSuperuser) return fail("You don't have permission to do that.");
 
   const name = text(form, "name");
   const adminEmail = text(form, "adminEmail");

@@ -4,6 +4,7 @@ import {
   type Cents,
   accountBalances,
   balanceSheet,
+  can,
   incomeStatement,
   trialBalance,
 } from "@acct/core";
@@ -39,6 +40,9 @@ function Stat({
 
 export default async function DashboardPage() {
   const { user } = await requireSession();
+
+  const canManageMembers = can(user.role, "manageMembers");
+  const showManagement = user.isSuperuser || canManageMembers;
 
   const today = todayISO();
   const [accounts, lines, recentEntries] = await Promise.all([
@@ -91,6 +95,51 @@ export default async function DashboardPage() {
             </Link>
             .
           </Alert>
+        </div>
+      ) : null}
+
+      {/*
+        Quick access to the management areas for the people who have them.
+        The nav carries these links too; this puts them one tap away on the
+        landing page. Each destination still gates itself server-side.
+      */}
+      {showManagement ? (
+        <div className="mb-4 grid gap-3 sm:grid-cols-2">
+          {canManageMembers ? (
+            <Link href="/team" className="group">
+              <Card className="hover:border-accent flex items-center justify-between p-4 transition-colors">
+                <div>
+                  <p className="group-hover:text-accent text-sm font-semibold transition-colors">
+                    Manage team
+                  </p>
+                  <p className="text-ink-muted text-xs">
+                    Invite members, change roles, remove people
+                  </p>
+                </div>
+                <span aria-hidden className="text-ink-subtle group-hover:text-accent">
+                  →
+                </span>
+              </Card>
+            </Link>
+          ) : null}
+
+          {user.isSuperuser ? (
+            <Link href="/superuser" className="group">
+              <Card className="hover:border-accent flex items-center justify-between p-4 transition-colors">
+                <div>
+                  <p className="group-hover:text-accent text-sm font-semibold transition-colors">
+                    Manage organizations
+                  </p>
+                  <p className="text-ink-muted text-xs">
+                    Create organizations and invite their admins
+                  </p>
+                </div>
+                <span aria-hidden className="text-ink-subtle group-hover:text-accent">
+                  →
+                </span>
+              </Card>
+            </Link>
+          ) : null}
         </div>
       ) : null}
 

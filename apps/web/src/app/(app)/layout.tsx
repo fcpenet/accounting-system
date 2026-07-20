@@ -28,7 +28,7 @@ export default async function AppLayout({
 
   return (
     <div className="flex min-h-dvh">
-      <DesktopNav orgName={user.orgName} isSuperuser={user.isSuperuser}>
+      <DesktopNav orgName={user.orgName} role={user.role} isSuperuser={user.isSuperuser}>
           {signOut}
         </DesktopNav>
 
@@ -51,7 +51,7 @@ export default async function AppLayout({
         </main>
       </div>
 
-      <MobileNav isSuperuser={user.isSuperuser} />
+      <MobileNav role={user.role} isSuperuser={user.isSuperuser} />
     </div>
   );
 }

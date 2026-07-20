@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
-import { ROLE_LABELS, can } from "@acct/core";
+import { ROLE_LABELS, type Role } from "@acct/core";
 import { listPendingInvitations } from "@acct/auth";
 import { Card, CardHeader, EmptyState, PageHeader } from "@/components/ui";
-import { requireSession } from "@/lib/auth";
+import { requireManager } from "@/lib/auth";
 import { formatDate } from "@/lib/dates";
 import { listMembers } from "@/lib/queries";
-import type { Role } from "@acct/core";
 import { InviteForm } from "./invite-form";
 import { MemberControls } from "./member-controls";
 import { RevokeButton } from "./revoke-button";
@@ -26,30 +25,25 @@ function RoleBadge({ role }: { role: Role }) {
 }
 
 export default async function TeamPage() {
-  const { user } = await requireSession();
-  const canManage = can(user.role, "manageMembers");
+  // Admin-only: non-admins get a 404 ("page not available"), and the Team nav
+  // link is hidden for them.
+  const { user } = await requireManager();
 
   const [members, pending] = await Promise.all([
     listMembers(user.orgId),
-    canManage ? listPendingInvitations(user.orgId) : Promise.resolve([]),
+    listPendingInvitations(user.orgId),
   ]);
 
   return (
     <>
       <PageHeader
         title="Team"
-        description={
-          canManage
-            ? "Invite people to your organization and manage roles."
-            : "The people in your organization."
-        }
+        description="Invite people to your organization and manage roles."
       />
 
-      {canManage ? (
-        <div className="mb-4">
-          <InviteForm />
-        </div>
-      ) : null}
+      <div className="mb-4">
+        <InviteForm />
+      </div>
 
       <Card className="mb-4">
         <CardHeader title="Members" subtitle={`${members.length} in this organization`} />
@@ -71,9 +65,9 @@ export default async function TeamPage() {
                     Superuser
                   </span>
                 ) : null}
-                {/* Admins manage others; your own row stays a plain badge so
-                    you can't lock yourself out or self-demote here. */}
-                {canManage && member.id !== user.id ? (
+                {/* Your own row stays a plain badge so you can't lock
+                    yourself out or self-demote here. */}
+                {member.id !== user.id ? (
                   <MemberControls userId={member.id} role={member.role} />
                 ) : (
                   <RoleBadge role={member.role} />
@@ -84,36 +78,34 @@ export default async function TeamPage() {
         </ul>
       </Card>
 
-      {canManage ? (
-        <Card>
-          <CardHeader title="Pending invitations" subtitle={`${pending.length} outstanding`} />
-          {pending.length === 0 ? (
-            <EmptyState
-              title="No pending invitations"
-              description="Invites you create appear here until they're accepted or expire."
-            />
-          ) : (
-            <ul className="divide-line divide-y">
-              {pending.map((invite) => (
-                <li
-                  key={invite.id}
-                  className="flex items-center justify-between gap-3 px-4 py-3"
-                >
-                  <div className="min-w-0">
-                    <p className="text-ink truncate text-sm font-medium">{invite.email}</p>
-                    <p className="text-ink-subtle text-xs">
-                      {ROLE_LABELS[invite.role]} · expires {formatDate(
-                        invite.expiresAt.toISOString().slice(0, 10),
-                      )}
-                    </p>
-                  </div>
-                  <RevokeButton invitationId={invite.id} />
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-      ) : null}
+      <Card>
+        <CardHeader title="Pending invitations" subtitle={`${pending.length} outstanding`} />
+        {pending.length === 0 ? (
+          <EmptyState
+            title="No pending invitations"
+            description="Invites you create appear here until they're accepted or expire."
+          />
+        ) : (
+          <ul className="divide-line divide-y">
+            {pending.map((invite) => (
+              <li
+                key={invite.id}
+                className="flex items-center justify-between gap-3 px-4 py-3"
+              >
+                <div className="min-w-0">
+                  <p className="text-ink truncate text-sm font-medium">{invite.email}</p>
+                  <p className="text-ink-subtle text-xs">
+                    {ROLE_LABELS[invite.role]} · expires {formatDate(
+                      invite.expiresAt.toISOString().slice(0, 10),
+                    )}
+                  </p>
+                </div>
+                <RevokeButton invitationId={invite.id} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
     </>
   );
 }
