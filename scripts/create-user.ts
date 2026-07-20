@@ -17,8 +17,9 @@
  * Dry-run by default; add --commit to actually write.
  */
 import { emitKeypressEvents } from "node:readline";
+import { DEFAULT_CHART_OF_ACCOUNTS } from "@acct/core";
 import { hashPassword } from "@acct/auth";
-import { db, eq, organizations, sql, users } from "@acct/db";
+import { accounts, db, eq, organizations, sql, users } from "@acct/db";
 
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -29,6 +30,7 @@ const email = arg("email")?.trim().toLowerCase();
 const orgName = arg("org")?.trim();
 const role = (arg("role") ?? "admin") as "admin" | "editor" | "viewer";
 const makeSuperuser = process.argv.includes("--superuser");
+const createOrg = process.argv.includes("--create-org");
 const commit = process.argv.includes("--commit");
 
 if (!email || !orgName) {
@@ -70,18 +72,37 @@ function promptHidden(question: string): Promise<string> {
 }
 
 async function main() {
-  const [org] = await db
+  let [org] = await db
     .select({ id: organizations.id, name: organizations.name })
     .from(organizations)
     .where(sql`lower(${organizations.name}) = ${orgName!.toLowerCase()}`)
     .limit(1);
 
-  if (!org) {
+  if (!org && !createOrg) {
     console.error(`No organization named "${orgName}". Existing:`);
     for (const o of await db.select({ name: organizations.name }).from(organizations)) {
       console.error(`  - ${o.name}`);
     }
+    console.error('Pass --create-org to create it.');
     process.exit(1);
+  }
+
+  const willCreateOrg = !org;
+  if (willCreateOrg) {
+    // --create-org bootstrap: no org exists yet (e.g. right after a reset).
+    // Seed the default chart of accounts too, so the org is usable.
+    org = { id: crypto.randomUUID(), name: orgName! };
+    if (commit) {
+      await db.insert(organizations).values({ id: org.id, name: org.name });
+      await db.insert(accounts).values(
+        DEFAULT_CHART_OF_ACCOUNTS.map((a) => ({
+          orgId: org!.id,
+          code: a.code,
+          name: a.name,
+          type: a.type,
+        })),
+      );
+    }
   }
 
   const [existing] = await db
@@ -94,7 +115,7 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`  org:   ${org.name} (${org.id})`);
+  console.log(`  org:   ${org.name}${willCreateOrg ? " (will be created)" : ` (${org.id})`}`);
   console.log(`  email: ${email}`);
   console.log(`  role:  ${role}`);
   console.log(`  superuser: ${makeSuperuser ? "yes (can create organizations)" : "no"}`);

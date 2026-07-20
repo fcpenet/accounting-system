@@ -1,6 +1,8 @@
 import { createHash, randomBytes } from "node:crypto";
+import { DEFAULT_CHART_OF_ACCOUNTS } from "@acct/core";
 import {
   type Database,
+  accounts,
   db as defaultDb,
   eq,
   invitations,
@@ -65,6 +67,16 @@ export async function provisionOrganization(
         name,
         currency: input.currency ?? "USD",
       });
+      // Seed the starter chart so the org is usable the moment its admin
+      // joins — the same chart registerUser installs.
+      await tx.insert(accounts).values(
+        DEFAULT_CHART_OF_ACCOUNTS.map((a) => ({
+          orgId,
+          code: a.code,
+          name: a.name,
+          type: a.type,
+        })),
+      );
       await tx.insert(invitations).values({
         id: crypto.randomUUID(),
         orgId,
