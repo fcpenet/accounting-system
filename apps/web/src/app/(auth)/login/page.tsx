@@ -9,9 +9,9 @@ export default function LoginPage() {
     <>
       <LoginForm />
       <p className="text-ink-muted mt-5 text-center text-sm">
-        Need an account?{" "}
+        Joining a team?{" "}
         <Link href="/signup" className="text-accent font-medium hover:underline">
-          Create one
+          You&rsquo;ll need an invitation
         </Link>
       </p>
     </>

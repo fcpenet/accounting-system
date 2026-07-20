@@ -28,7 +28,9 @@ export default async function AppLayout({
 
   return (
     <div className="flex min-h-dvh">
-      <DesktopNav orgName={user.orgName}>{signOut}</DesktopNav>
+      <DesktopNav orgName={user.orgName} isAdmin={user.isPlatformAdmin}>
+          {signOut}
+        </DesktopNav>
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Mobile header — the sidebar carries this on desktop. */}
@@ -49,7 +51,7 @@ export default async function AppLayout({
         </main>
       </div>
 
-      <MobileNav />
+      <MobileNav isAdmin={user.isPlatformAdmin} />
     </div>
   );
 }

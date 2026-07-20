@@ -12,7 +12,7 @@
   "scripts": {
     "generate": "drizzle-kit generate",
     "migrate": "dotenv -e ../../.env.local -- drizzle-kit migrate",
-    "push": "dotenv -e ../../.env.local -- drizzle-kit push",
+    "push": "dotenv -e ../../.env.local -- tsx ../../scripts/guard-remote-db.ts drizzle-kit push",
     "studio": "dotenv -e ../../.env.local -- drizzle-kit studio",
     "typecheck": "tsc --noEmit"
   },

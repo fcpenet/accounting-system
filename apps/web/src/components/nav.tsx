@@ -60,15 +60,42 @@ const NAV_ITEMS: NavItem[] = [
       </>,
     ),
   },
+  {
+    href: "/team",
+    label: "Team",
+    icon: icon(
+      <>
+        <circle cx="9" cy="8" r="3" />
+        <path d="M3 20a6 6 0 0 1 12 0M16 5a3 3 0 0 1 0 6M21 20a6 6 0 0 0-3.5-5.5" />
+      </>,
+    ),
+  },
 ];
+
+const ADMIN_ITEM: NavItem = {
+  href: "/admin",
+  label: "Admin",
+  icon: icon(
+    <>
+      <path d="M12 3l7 4v5c0 4-3 7-7 9-4-2-7-5-7-9V7l7-4Z" />
+    </>,
+  ),
+};
 
 function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+/** Nav items for this user: the Admin entry only when they're a platform
+ *  admin. The page still gates itself; this just hides a dead link. */
+function navItemsFor(isAdmin: boolean): NavItem[] {
+  return isAdmin ? [...NAV_ITEMS, ADMIN_ITEM] : NAV_ITEMS;
+}
+
 /** Fixed bottom tab bar — the primary navigation on phones. */
-export function MobileNav() {
+export function MobileNav({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname();
+  const items = navItemsFor(isAdmin);
 
   return (
     <nav
@@ -77,7 +104,7 @@ export function MobileNav() {
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <ul className="flex">
-        {NAV_ITEMS.map((item) => {
+        {items.map((item) => {
           const active = isActive(pathname, item.href);
           return (
             <li key={item.href} className="flex-1">
@@ -102,12 +129,15 @@ export function MobileNav() {
 /** Persistent sidebar from `lg` up. */
 export function DesktopNav({
   orgName,
+  isAdmin = false,
   children,
 }: {
   orgName: string;
+  isAdmin?: boolean;
   children?: ReactNode | undefined;
 }) {
   const pathname = usePathname();
+  const items = navItemsFor(isAdmin);
 
   return (
     <aside className="border-line bg-surface hidden w-60 shrink-0 flex-col border-r lg:flex">
@@ -118,7 +148,7 @@ export function DesktopNav({
 
       <nav aria-label="Main" className="flex-1 p-3">
         <ul className="flex flex-col gap-0.5">
-          {NAV_ITEMS.map((item) => {
+          {items.map((item) => {
             const active = isActive(pathname, item.href);
             return (
               <li key={item.href}>

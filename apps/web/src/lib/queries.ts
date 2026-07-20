@@ -4,6 +4,7 @@ import {
   type Account,
   type DateRange,
   type LedgerLine,
+  type Role,
   cents,
 } from "@acct/core";
 import {
@@ -17,6 +18,8 @@ import {
   journalEntries,
   journalLines,
   lte,
+  organizations,
+  users,
 } from "@acct/db";
 
 /**
@@ -266,4 +269,68 @@ export async function getAccount(
     .limit(1);
 
   return rows[0] ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Members (for the team page)
+// ---------------------------------------------------------------------------
+
+export interface Member {
+  id: string;
+  email: string;
+  name: string | null;
+  role: Role;
+  isPlatformAdmin: boolean;
+}
+
+/** Everyone in an org, owners first, then by email. */
+export async function listMembers(orgId: string): Promise<Member[]> {
+  const rows = await db
+    .select({
+      id: users.id,
+      email: users.email,
+      name: users.name,
+      role: users.role,
+      isPlatformAdmin: users.isPlatformAdmin,
+    })
+    .from(users)
+    .where(eq(users.orgId, orgId))
+    .orderBy(asc(users.email));
+
+  const rank: Record<Role, number> = { owner: 0, editor: 1, viewer: 2 };
+  return rows.sort((a, b) => rank[a.role] - rank[b.role]);
+}
+
+// ---------------------------------------------------------------------------
+// Platform-admin: cross-org read. These are the ONLY functions that
+// deliberately reach across organizations, and they must never be called
+// outside a requireAdmin() gate.
+// ---------------------------------------------------------------------------
+
+export interface OrgSummary {
+  id: string;
+  name: string;
+  currency: string;
+  memberCount: number;
+  createdAt: Date;
+}
+
+export async function listAllOrganizations(): Promise<OrgSummary[]> {
+  const orgs = await db
+    .select({
+      id: organizations.id,
+      name: organizations.name,
+      currency: organizations.currency,
+      createdAt: organizations.createdAt,
+    })
+    .from(organizations)
+    .orderBy(asc(organizations.name));
+
+  const counts = await db
+    .select({ orgId: users.orgId, id: users.id })
+    .from(users);
+  const byOrg = new Map<string, number>();
+  for (const row of counts) byOrg.set(row.orgId, (byOrg.get(row.orgId) ?? 0) + 1);
+
+  return orgs.map((org) => ({ ...org, memberCount: byOrg.get(org.id) ?? 0 }));
 }
