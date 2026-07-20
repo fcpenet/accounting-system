@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { type DraftLine, MoneyError, parseAmount } from "@acct/core";
 import { postEntry, reverseEntry } from "@acct/ledger";
 import { type ActionState, fail } from "@/lib/action-state";
-import { requireSession } from "@/lib/auth";
+import { ForbiddenError, requirePermission } from "@/lib/auth";
 
 /**
  * Thin adapters over @acct/ledger. Everything here is HTTP plumbing —
@@ -35,7 +35,15 @@ export async function createEntryAction(
   _prev: ActionState,
   form: FormData,
 ): Promise<ActionState> {
-  const { user } = await requireSession();
+  let user;
+  try {
+    ({ user } = await requirePermission("write"));
+  } catch (error) {
+    if (error instanceof ForbiddenError) {
+      return fail("You have view-only access. Ask an owner or editor to post entries.");
+    }
+    throw error; // redirect() and everything else propagate
+  }
 
   const accountIds = textList(form, "accountId");
   const directions = textList(form, "direction");
@@ -107,7 +115,15 @@ export async function reverseEntryAction(
   _prev: ActionState,
   form: FormData,
 ): Promise<ActionState> {
-  const { user } = await requireSession();
+  let user;
+  try {
+    ({ user } = await requirePermission("write"));
+  } catch (error) {
+    if (error instanceof ForbiddenError) {
+      return fail("You have view-only access. Ask an owner or editor to reverse entries.");
+    }
+    throw error;
+  }
 
   const entryId = text(form, "entryId");
   const date = text(form, "date");

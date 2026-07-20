@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+import type { Role } from "@acct/core";
 import { db, eq, lte, organizations, sessions, users } from "@acct/db";
 
 export const SESSION_COOKIE = "acct_session";
@@ -23,6 +24,10 @@ export interface SessionUser {
   orgId: string;
   orgName: string;
   currency: string;
+  /** Role within the org — drives what write actions are allowed. */
+  role: Role;
+  /** Global platform administrator. */
+  isPlatformAdmin: boolean;
 }
 
 export interface ActiveSession {
@@ -67,6 +72,8 @@ export async function validateSession(
       orgId: users.orgId,
       orgName: organizations.name,
       currency: organizations.currency,
+      role: users.role,
+      isPlatformAdmin: users.isPlatformAdmin,
     })
     .from(sessions)
     .innerJoin(users, eq(sessions.userId, users.id))
@@ -99,6 +106,8 @@ export async function validateSession(
       orgId: row.orgId,
       orgName: row.orgName,
       currency: row.currency,
+      role: row.role,
+      isPlatformAdmin: row.isPlatformAdmin,
     },
   };
 }

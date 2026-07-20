@@ -101,9 +101,15 @@ importers:
         specifier: workspace:*
         version: link:../db
     devDependencies:
+      '@libsql/client':
+        specifier: ^0.15.9
+        version: 0.15.15
       '@types/node':
         specifier: ^22.10.5
         version: 22.20.1
+      drizzle-orm:
+        specifier: ^0.44.2
+        version: 0.44.7(@libsql/client@0.15.15)
       typescript:
         specifier: ^5.7.3
         version: 5.9.3

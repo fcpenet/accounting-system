@@ -17,6 +17,7 @@ export interface SeedAccount {
 export const DEFAULT_CHART_OF_ACCOUNTS: readonly SeedAccount[] = [
   { code: "1000", name: "Cash", type: "asset" },
   { code: "1010", name: "Business Checking", type: "asset" },
+  { code: "1020", name: "Cash in Bank", type: "asset" },
   { code: "1200", name: "Accounts Receivable", type: "asset" },
   { code: "1400", name: "Prepaid Expenses", type: "asset" },
   { code: "1500", name: "Equipment", type: "asset" },

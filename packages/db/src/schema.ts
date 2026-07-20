@@ -27,15 +27,24 @@ const createdAt = () =>
 // Identity
 // ---------------------------------------------------------------------------
 
-export const organizations = sqliteTable("organizations", {
-  id: id(),
-  name: text("name").notNull(),
-  /** ISO 4217 code. Single-currency per org for now. */
-  currency: text("currency").notNull().default("USD"),
-  /** Month the fiscal year starts, 1-12. */
-  fiscalYearStartMonth: integer("fiscal_year_start_month").notNull().default(1),
-  createdAt: createdAt(),
-});
+export const organizations = sqliteTable(
+  "organizations",
+  {
+    id: id(),
+    name: text("name").notNull(),
+    /** ISO 4217 code. Single-currency per org for now. */
+    currency: text("currency").notNull().default("USD"),
+    /** Month the fiscal year starts, 1-12. */
+    fiscalYearStartMonth: integer("fiscal_year_start_month").notNull().default(1),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    // Names are unique case-insensitively, so "Cocina" and "cocina" collide.
+    // Indexing lower(name) is race-safe in a way a code-only check isn't:
+    // two simultaneous signups can't both pass a SELECT and then both insert.
+    uniqueIndex("organizations_name_unique").on(sql`lower(${t.name})`),
+  ],
+);
 
 export const users = sqliteTable(
   "users",
@@ -48,9 +57,63 @@ export const users = sqliteTable(
     /** scrypt hash; see apps/web/src/lib/password.ts. Null for OAuth-only users. */
     passwordHash: text("password_hash"),
     name: text("name"),
+    /**
+     * Membership role within the org. The first user of an org is its owner;
+     * invited users get the role their invitation carried. Permissions are
+     * defined once in @acct/core (see roles.ts).
+     */
+    role: text("role", { enum: ["owner", "editor", "viewer"] })
+      .notNull()
+      .default("owner"),
+    /**
+     * Global platform administrator. Orthogonal to the org `role`: an admin
+     * manages the whole application (creating organizations, etc.) on top of
+     * being a normal member of their own org. Granted out-of-band, never via
+     * self-service — see scripts/set-admin.ts.
+     */
+    isPlatformAdmin: integer("is_platform_admin", { mode: "boolean" })
+      .notNull()
+      .default(false),
     createdAt: createdAt(),
   },
-  (t) => [uniqueIndex("users_email_unique").on(t.email)],
+  (t) => [
+    uniqueIndex("users_email_unique").on(t.email),
+    index("users_org_idx").on(t.orgId),
+  ],
+);
+
+/**
+ * A pending invitation to join an organization.
+ *
+ * Email-bound: the invite names the person, and only that email can accept.
+ * The link is just the delivery mechanism, so a forwarded or leaked link
+ * can't be redeemed by a stranger. Only the SHA-256 of the token is stored,
+ * exactly as for sessions — a database leak yields no usable invites.
+ */
+export const invitations = sqliteTable(
+  "invitations",
+  {
+    id: id(),
+    orgId: text("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    role: text("role", { enum: ["owner", "editor", "viewer"] }).notNull(),
+    /** SHA-256 of the invite token; the raw token lives only in the link. */
+    tokenHash: text("token_hash").notNull(),
+    invitedByUserId: text("invited_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    /** Set once redeemed; a redeemed invite can't be used again. */
+    acceptedAt: integer("accepted_at", { mode: "timestamp_ms" }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("invitations_token_unique").on(t.tokenHash),
+    // At most one live invite per email per org (enforced in the service).
+    index("invitations_org_email_idx").on(t.orgId, t.email),
+  ],
 );
 
 export const sessions = sqliteTable(
@@ -166,6 +229,7 @@ export const organizationsRelations = relations(organizations, ({ many }) => ({
   users: many(users),
   accounts: many(accounts),
   journalEntries: many(journalEntries),
+  invitations: many(invitations),
 }));
 
 export const usersRelations = relations(users, ({ one, many }) => ({
@@ -174,6 +238,17 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     references: [organizations.id],
   }),
   sessions: many(sessions),
+}));
+
+export const invitationsRelations = relations(invitations, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [invitations.orgId],
+    references: [organizations.id],
+  }),
+  invitedBy: one(users, {
+    fields: [invitations.invitedByUserId],
+    references: [users.id],
+  }),
 }));
 
 export const sessionsRelations = relations(sessions, ({ one }) => ({
@@ -220,6 +295,7 @@ export const journalLinesRelations = relations(journalLines, ({ one }) => ({
 
 export type Organization = typeof organizations.$inferSelect;
 export type User = typeof users.$inferSelect;
+export type Invitation = typeof invitations.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type AccountRow = typeof accounts.$inferSelect;
 export type JournalEntry = typeof journalEntries.$inferSelect;

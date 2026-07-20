@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { type Permission, can } from "@acct/core";
 import {
   type ActiveSession,
   SESSION_COOKIE,
@@ -27,6 +28,37 @@ export const getSession = cache(async (): Promise<ActiveSession | null> => {
 export async function requireSession(): Promise<ActiveSession> {
   const session = await getSession();
   if (!session) redirect("/login");
+  return session;
+}
+
+/**
+ * Thrown when a signed-in user lacks the permission for an action. Server
+ * actions catch this and turn it into a form error; pages let it 403.
+ */
+export class ForbiddenError extends Error {
+  constructor(message = "You don't have permission to do that") {
+    super(message);
+    this.name = "ForbiddenError";
+  }
+}
+
+/**
+ * Require both a session and a permission. The server is the authority on
+ * what a role may do — hiding a button is cosmetic, this is the real guard.
+ */
+export async function requirePermission(
+  permission: Permission,
+): Promise<ActiveSession> {
+  const session = await requireSession();
+  if (!can(session.user.role, permission)) throw new ForbiddenError();
+  return session;
+}
+
+/** Gate for the platform-admin area. Non-admins are sent to their dashboard
+ *  rather than shown a 403 — the admin area simply doesn't exist for them. */
+export async function requireAdmin(): Promise<ActiveSession> {
+  const session = await requireSession();
+  if (!session.user.isPlatformAdmin) redirect("/dashboard");
   return session;
 }
 

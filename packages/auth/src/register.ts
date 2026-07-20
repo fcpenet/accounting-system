@@ -1,5 +1,13 @@
 import { DEFAULT_CHART_OF_ACCOUNTS } from "@acct/core";
-import { accounts, db, eq, organizations, users } from "@acct/db";
+import {
+  type Database,
+  accounts,
+  db as defaultDb,
+  eq,
+  organizations,
+  sql,
+  users,
+} from "@acct/db";
 import { WeakPasswordError, hashPassword, verifyPassword } from "./password";
 
 export class AuthError extends Error {
@@ -35,7 +43,10 @@ export interface RegisterInput {
  * All three happen in one transaction: an org with no accounts, or a user
  * with no org, would both be unusable states to leave behind.
  */
-export async function registerUser(input: RegisterInput): Promise<{
+export async function registerUser(
+  input: RegisterInput,
+  db: Database = defaultDb,
+): Promise<{
   userId: string;
   orgId: string;
 }> {
@@ -60,6 +71,17 @@ export async function registerUser(input: RegisterInput): Promise<{
     .limit(1);
   if (existing.length > 0) {
     throw new AuthError("An account with that email already exists");
+  }
+
+  // Case-insensitive: match how the unique index compares. The index is the
+  // real guard (see the catch below); this is for a friendly early error.
+  const nameTaken = await db
+    .select({ id: organizations.id })
+    .from(organizations)
+    .where(sql`lower(${organizations.name}) = ${orgName.toLowerCase()}`)
+    .limit(1);
+  if (nameTaken.length > 0) {
+    throw new AuthError("That organization name is already taken");
   }
 
   const orgId = crypto.randomUUID();
@@ -96,6 +118,14 @@ export async function registerUser(input: RegisterInput): Promise<{
     if (error instanceof Error && /UNIQUE constraint failed: users.email/i.test(error.message)) {
       throw new AuthError("An account with that email already exists");
     }
+    // organizations_name_unique indexes lower(name), so a race surfaces as a
+    // generic index failure rather than naming the column.
+    if (
+      error instanceof Error &&
+      /UNIQUE constraint failed.*organizations|organizations_name_unique/i.test(error.message)
+    ) {
+      throw new AuthError("That organization name is already taken");
+    }
     throw error;
   }
 
@@ -110,6 +140,7 @@ export async function registerUser(input: RegisterInput): Promise<{
 export async function authenticate(
   emailInput: string,
   password: string,
+  db: Database = defaultDb,
 ): Promise<{ userId: string; orgId: string } | null> {
   const email = normalizeEmail(emailInput);
 

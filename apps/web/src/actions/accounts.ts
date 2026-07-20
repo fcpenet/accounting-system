@@ -4,18 +4,35 @@ import { revalidatePath } from "next/cache";
 import { ACCOUNT_TYPES, type AccountType } from "@acct/core";
 import { accounts, and, db, eq, journalLines } from "@acct/db";
 import { type ActionState, fail } from "@/lib/action-state";
-import { requireSession } from "@/lib/auth";
+import { ForbiddenError, requirePermission } from "@/lib/auth";
 
 function text(form: FormData, key: string): string {
   const value = form.get(key);
   return typeof value === "string" ? value.trim() : "";
 }
 
+/** Resolve the session and require write access, or return a form error. */
+async function requireWrite(): Promise<
+  { ok: true; user: Awaited<ReturnType<typeof requirePermission>>["user"] } | { ok: false; state: ActionState }
+> {
+  try {
+    const { user } = await requirePermission("write");
+    return { ok: true, user };
+  } catch (error) {
+    if (error instanceof ForbiddenError) {
+      return { ok: false, state: fail("You have view-only access and can't change accounts.") };
+    }
+    throw error;
+  }
+}
+
 export async function createAccountAction(
   _prev: ActionState,
   form: FormData,
 ): Promise<ActionState> {
-  const { user } = await requireSession();
+  const gate = await requireWrite();
+  if (!gate.ok) return gate.state;
+  const { user } = gate;
 
   const code = text(form, "code");
   const name = text(form, "name");
@@ -57,7 +74,9 @@ export async function setAccountArchivedAction(
   _prev: ActionState,
   form: FormData,
 ): Promise<ActionState> {
-  const { user } = await requireSession();
+  const gate = await requireWrite();
+  if (!gate.ok) return gate.state;
+  const { user } = gate;
 
   const accountId = text(form, "accountId");
   const archived = text(form, "archived") === "true";
@@ -80,7 +99,9 @@ export async function deleteAccountAction(
   _prev: ActionState,
   form: FormData,
 ): Promise<ActionState> {
-  const { user } = await requireSession();
+  const gate = await requireWrite();
+  if (!gate.ok) return gate.state;
+  const { user } = gate;
   const accountId = text(form, "accountId");
 
   const used = await db
