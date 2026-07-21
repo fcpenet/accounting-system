@@ -17,6 +17,11 @@ export default defineConfig({
     include: ["test/**/*.test.{ts,tsx}"],
   },
   resolve: {
-    alias: { "@": path.join(here, "src") },
+    alias: {
+      "@": path.join(here, "src"),
+      // Next provides `server-only` at build; in tests it isn't resolvable,
+      // so alias it to an empty module.
+      "server-only": path.join(here, "test/stubs/empty.ts"),
+    },
   },
 });
